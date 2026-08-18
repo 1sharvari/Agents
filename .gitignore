@@ -5,3 +5,5 @@ coverage/
 qa-results.json
 playwright-report/
 test-results/
+.env
+.env.*
