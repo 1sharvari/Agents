@@ -1,0 +1,22 @@
+{
+  "name": "sdlc-playwright-automation",
+  "version": "1.0.0",
+  "description": "Playwright Automation Test Suite for SDLC Flow",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report"
+  },
+  "keywords": [
+    "playwright",
+    "e2e",
+    "qa-automation",
+    "sdlc"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}

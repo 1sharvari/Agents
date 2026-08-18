@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "jira": {
+      "command": "node",
+      "args": ["services/jiraMcpServer.js"],
+      "env": {
+        "JIRA_BASE_URL": "${JIRA_BASE_URL}",
+        "JIRA_PROJECT_KEY": "${JIRA_PROJECT_KEY}",
+        "JIRA_EMAIL": "${JIRA_EMAIL}",
+        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}"
+      },
+      "description": "Model Context Protocol Server for Atlassian Jira issue tracking, status transitions, and story management"
+    },
+    "github": {
+      "command": "node",
+      "args": ["services/githubMcpServer.js"],
+      "env": {
+        "GITHUB_REPOSITORY": "${GITHUB_REPOSITORY}",
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}",
+        "GITHUB_BASE_BRANCH": "${GITHUB_BASE_BRANCH}"
+      },
+      "description": "Model Context Protocol Server for GitHub repository branch management, Pull Requests, and code reviews"
+    }
+  }
+}

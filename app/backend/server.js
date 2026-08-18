@@ -4,18 +4,11 @@ require('dotenv').config();
 
 const app = express();
 
-// --------------------------------------------------
 // Configuration
-// --------------------------------------------------
-
 const PORT = process.env.PORT || 3000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4200';
 
-// --------------------------------------------------
 // Middleware
-// --------------------------------------------------
-
-// CORS
 app.use(
   cors({
     origin: FRONTEND_URL,
@@ -25,25 +18,18 @@ app.use(
   })
 );
 
-// Parse JSON request bodies
 app.use(express.json());
-
-// Parse URL-encoded request bodies
 app.use(express.urlencoded({ extended: true }));
 
-// --------------------------------------------------
-// Request logging
-// --------------------------------------------------
-
+// Request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl}`);
+  if (process.env.NODE_ENV !== 'test') {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl}`);
+  }
   next();
 });
 
-// --------------------------------------------------
 // Health check
-// --------------------------------------------------
-
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -52,26 +38,21 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// --------------------------------------------------
 // User API
-// --------------------------------------------------
-
 app.get('/api/user', (req, res) => {
   res.status(200).json({
     success: true,
     user: {
       username: 'testuser',
-      password: 'password123'
+      name: 'Test User',
+      email: 'testuser@example.com'
     }
   });
 });
 
-// --------------------------------------------------
-// Login API - demo only
-// --------------------------------------------------
-
+// Login API
 app.post('/api/login', (req, res) => {
-  const { username, password } = req.body;
+  const { username, password } = req.body || {};
 
   if (!username || !password) {
     return res.status(400).json({
@@ -85,7 +66,8 @@ app.post('/api/login', (req, res) => {
       success: true,
       message: 'Login successful',
       user: {
-        username: 'testuser'
+        username: 'testuser',
+        token: 'mock-jwt-token-sdlc-12345'
       }
     });
   }
@@ -96,10 +78,24 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-// --------------------------------------------------
-// 404 Handler
-// --------------------------------------------------
+// Products Catalog API
+app.get('/api/products', (req, res) => {
+  res.status(200).json({
+    success: true,
+    products: [
+      { id: 1, name: 'Cloud Native Developer Kit', price: 99.99, category: 'Software', inStock: true },
+      { id: 2, name: 'AI SDLC Automation Suite', price: 199.99, category: 'DevTools', inStock: true },
+      { id: 3, name: 'Automated Test Runner', price: 49.99, category: 'Testing', inStock: true }
+    ]
+  });
+});
 
+// Test error trigger route (for testing 500 error boundary)
+app.get('/api/error-test', (req, res, next) => {
+  next(new Error('Simulated internal server error'));
+});
+
+// 404 Route Handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -107,12 +103,11 @@ app.use((req, res) => {
   });
 });
 
-// --------------------------------------------------
 // Global Error Handler
-// --------------------------------------------------
-
 app.use((err, req, res, next) => {
-  console.error('Server error:', err);
+  if (process.env.NODE_ENV !== 'test') {
+    console.error('Server error:', err);
+  }
 
   res.status(500).json({
     success: false,
@@ -120,19 +115,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// --------------------------------------------------
-// Start Server
-// --------------------------------------------------
+// Start Server if executed directly
+/* istanbul ignore next */
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server started on http://localhost:${PORT}`);
+  });
+}
 
-app.listen(PORT, () => {
-  console.log('');
-  console.log('====================================');
-  console.log('      Node Backend Started');
-  console.log('====================================');
-  console.log(`Server:  http://localhost:${PORT}`);
-  console.log(`Health:  http://localhost:${PORT}/api/health`);
-  console.log(`User:    http://localhost:${PORT}/api/user`);
-  console.log(`Frontend: ${FRONTEND_URL}`);
-  console.log('====================================');
-  console.log('');
-});
+module.exports = app;
