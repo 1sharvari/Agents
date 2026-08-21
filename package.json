@@ -23,5 +23,8 @@
     "node"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@angular-devkit/build-angular": "^21.2.21"
+  }
 }
