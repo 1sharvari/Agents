@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Node.js Express REST API server providing mock endpoints for user auth and catalog.
+ * @module Server
+ * @standards Clean Architecture, SOLID Principles, ESLint / Prettier
+ * @feature User Authentication & Product Catalog / SHOP
+ */
+
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();

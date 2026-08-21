@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Unit test suite for Node.js Express REST API server endpoints (>80% coverage).
+ * @module ServerTests
+ * @standards Clean Architecture, Jest / Supertest
+ * @feature User Authentication & Product Catalog / SHOP
+ */
+
 const request = require('supertest');
 const app = require('./server');
 

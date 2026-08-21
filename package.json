@@ -9,7 +9,7 @@
     "start:backend": "cd app/backend && node server.js",
     "test:backend": "cd app/backend && npm test",
     "test:coverage": "cd app/backend && npm test -- --coverage",
-    "test:e2e": "cd{/tests && npx playwright test",
+    "test:e2e": "cd tests && npx playwright test",
     "install:all": "cd app/backend && npm install && cd ../frontend && npm install && cd ../../tests && npm install"
   },
   "keywords": [],
