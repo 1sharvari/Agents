@@ -1,25 +1,27 @@
-﻿{
-  name: sdlc-multi-agent-orchestrator,
-  version: 2.0.0,
-  description: Automated SDLC Multi-Agent Workflow with Human Authorization Gates,
-  scripts: {
-    orchestrator: echo 'Run orchestrator via Antigravity IDE: type "run SDLC flow"',
-    start: npm run orchestrator,
-    test:backend: cd app/backend && npm test,
-    test:coverage: cd app/backend && npm test -- --coverage,
-    test:e2e: cd tests && npx playwright test,
-    install:all: cd app/backend && npm install && cd ../frontend && npm install && cd ../../tests && npm install
+{
+  "name": "sdlc-multi-agent-orchestrator",
+  "version": "2.0.0",
+  "description": "Automated SDLC Multi-Agent Workflow with Human Authorization Gates",
+  "scripts": {
+    "orchestrator": "echo Run orchestrator via Antigravity IDE: type run SDLC flow",
+    "start": "npm run orchestrator",
+    "start:frontend": "cd app/frontend && npm start",
+    "start:backend": "cd app/backend && node server.js",
+    "test:backend": "cd app/backend && npm test",
+    "test:coverage": "cd app/backend && npm test -- --coverage",
+    "test:e2e": "cd tests && npx playwright test",
+    "install:all": "cd app/backend && npm install && cd ../frontend && npm install && cd ../../tests && npm install"
   },
-  keywords: [
-    sdlc,
-    ai-agents,
-    antigravity,
-    jira,
-    github,
-    playwright,
-    angular,
-    node
+  "keywords": [
+    "sdlc",
+    "ai-agents",
+    "antigravity",
+    "jira",
+    "github",
+    "playwright",
+    "angular",
+    "node"
   ],
-  author: ",
- license: ISC
+  "author": "",
+  "license": "ISC"
 }
