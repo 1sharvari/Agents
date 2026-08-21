@@ -1,4 +1,4 @@
-const { defineConfig, devices } = require('@playwright/test');
+﻿const { defineConfig, devices } = require('@playwright/test');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
@@ -21,7 +21,7 @@ module.exports = defineConfig({
     trace: 'on-first-retry'
   },
   webServer: {
-    command: 'node ../app/backend/server.js',
+    command: 'node ../backend/server.js',
     url: 'http://localhost:3000/api/health',
     reuseExistingServer: true,
     timeout: 15000

@@ -1,30 +1,23 @@
-{
-  "name": "sdlc-multi-agent-orchestrator",
-  "version": "1.0.0",
-  "description": "Automated SDLC Flow with Human Gates powered by specialized Agents, Jira and GitHub integration",
-  "main": "orchestrator.js",
-  "scripts": {
-    "start": "node orchestrator.js",
-    "orchestrate": "node orchestrator.js",
-    "test:backend": "cd app/backend && npm test",
-    "test:coverage": "cd app/backend && npm test -- --coverage",
-    "test:qa": "cd tests && npx playwright test",
-    "install:all": "npm install && cd app/backend && npm install && cd ../../tests && npm install"
+﻿{
+  name: sdlc-multi-agent-orchestrator,
+  version: 2.0.0,
+  description: Automated SDLC Flow with Human Gates powered by Markdown-first Agents in Antigravity IDE,
+  scripts: {
+    test:backend: cd backend && npm test,
+    test:coverage: cd backend && npm test -- --coverage,
+    test:e2e: cd e2e-tests && npx playwright test,
+    install:all: cd backend && npm install && cd ../frontend && npm install && cd ../e2e-tests && npm install
   },
-  "keywords": [
-    "sdlc",
-    "ai-agents",
-    "orchestrator",
-    "jira",
-    "github",
-    "playwright",
-    "angular",
-    "node"
+  keywords: [
+    sdlc,
+    ai-agents,
+    antigravity,
+    jira,
+    github,
+    playwright,
+    angular,
+    node
   ],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "axios": "^1.19.0",
-    "dotenv": "^16.6.1"
-  }
+  author: ",
+ license: ISC
 }

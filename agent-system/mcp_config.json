@@ -1,0 +1,25 @@
+﻿{
+  mcpServers: {
+    jira: {
+      command: node,
+      args: [services/jiraMcpServer.js],
+      env: {
+        JIRA_BASE_URL: ",
+ JIRA_PROJECT_KEY: ,
+ JIRA_EMAIL: ,
+ JIRA_API_TOKEN: 
+ },
+ description: MCP Server for Jira issues, story points, linking, and status transitions
+ },
+ github: {
+ command: node,
+ args: [services/githubMcpServer.js],
+ env: {
+ GITHUB_REPOSITORY: ,
+ GITHUB_TOKEN: ,
+ GITHUB_BASE_BRANCH: 
+ },
+ description: MCP Server for GitHub branches, Pull Requests, and code review management
+ }
+ }
+}
