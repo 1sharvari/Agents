@@ -1,0 +1,22 @@
+<div class="catalog-container">
+  <div class="catalog-header">
+    <h2>Featured Product Catalog</h2>
+    <span class="items-count">{{ products.length }} items available</span>
+  </div>
+
+  <div class="product-grid" *ngIf="products.length > 0">
+    <div class="product-card" *ngFor="let product of products">
+      <div class="product-header">
+        <h3>{{ product.name }}</h3>
+        <span class="category-badge">{{ product.category }}</span>
+      </div>
+      <p class="product-price">${{ product.price }}</p>
+      <span class="stock-badge" [class.in-stock]="product.inStock">
+        {{ product.inStock ? 'In Stock' : 'Out of Stock' }}
+      </span>
+    </div>
+  </div>
+
+  <p *ngIf="loading" class="loading-msg">Loading featured products...</p>
+  <p *ngIf="!loading && products.length === 0" class="no-products">No products found in catalog.</p>
+</div>

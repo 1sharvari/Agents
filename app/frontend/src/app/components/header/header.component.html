@@ -1,0 +1,15 @@
+<header class="app-header">
+  <div class="header-brand">
+    <h1>🛍️ SHOP Platform</h1>
+    <nav class="nav-links">
+      <a routerLink="/products" routerLinkActive="active-link">Catalog</a>
+      <a routerLink="/login" *ngIf="!currentUser" routerLinkActive="active-link">Sign In</a>
+      <span *ngIf="currentUser" class="user-greeting">Hello, {{ currentUser.name }}</span>
+      <button *ngIf="currentUser" class="btn btn-logout" (click)="onLogout()">Logout</button>
+    </nav>
+  </div>
+  <div class="health-badge" [class.healthy]="backendHealthy" [class.unhealthy]="!backendHealthy">
+    <span class="status-indicator"></span>
+    {{ backendStatus }}
+  </div>
+</header>

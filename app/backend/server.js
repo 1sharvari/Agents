@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Node.js Express REST API mock service implementing architecture plan.
+ * @module Server
+ * @standards Clean Architecture, SOLID Principles, Modular Design
+ * @feature SHOP-32 - [Feature] User Authentication & Product Catalog Flow
+ */
+
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -29,7 +36,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check
+// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -38,19 +45,20 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// User API
+// User profile endpoint
 app.get('/api/user', (req, res) => {
   res.status(200).json({
     success: true,
     user: {
       username: 'testuser',
       name: 'Test User',
-      email: 'testuser@example.com'
+      email: 'testuser@example.com',
+      role: 'Standard User'
     }
   });
 });
 
-// Login API
+// User login endpoint
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body || {};
 
@@ -67,7 +75,9 @@ app.post('/api/login', (req, res) => {
       message: 'Login successful',
       user: {
         username: 'testuser',
-        token: 'mock-jwt-token-sdlc-12345'
+        name: 'Test User',
+        email: 'testuser@example.com',
+        token: 'jwt-mock-token-12345'
       }
     });
   }
@@ -78,48 +88,63 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-// Products Catalog API
+// Product catalog endpoint
 app.get('/api/products', (req, res) => {
   res.status(200).json({
     success: true,
     products: [
-      { id: 1, name: 'Cloud Native Developer Kit', price: 99.99, category: 'Software', inStock: true },
-      { id: 2, name: 'AI SDLC Automation Suite', price: 199.99, category: 'DevTools', inStock: true },
-      { id: 3, name: 'Automated Test Runner', price: 49.99, category: 'Testing', inStock: true }
+      {
+        id: 1,
+        name: 'Wireless Headphones',
+        price: 99.99,
+        category: 'Electronics',
+        inStock: true
+      },
+      {
+        id: 2,
+        name: 'Ergonomic Keyboard',
+        price: 49.99,
+        category: 'Accessories',
+        inStock: true
+      },
+      {
+        id: 3,
+        name: 'Smart Fitness Watch',
+        price: 149.99,
+        category: 'Wearables',
+        inStock: true
+      }
     ]
   });
 });
 
-// Test error trigger route (for testing 500 error boundary)
+// Simulated error endpoint for 500 error boundary test
 app.get('/api/error-test', (req, res, next) => {
-  next(new Error('Simulated internal server error'));
+  const err = new Error('Simulated internal server error');
+  next(err);
 });
 
 // 404 Route Handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: `Route not found: ${req.method} ${req.originalUrl}`
+    message: 'Endpoint not found'
   });
 });
 
-// Global Error Handler
+// 500 Error Boundary Middleware
 app.use((err, req, res, next) => {
-  if (process.env.NODE_ENV !== 'test') {
-    console.error('Server error:', err);
-  }
-
   res.status(500).json({
     success: false,
-    message: 'Internal server error'
+    message: 'Internal server error',
+    error: err.message || 'Unknown error'
   });
 });
 
-// Start Server if executed directly
-/* istanbul ignore next */
-if (require.main === module) {
+// Server start if run directly
+if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    console.log(`Server started on http://localhost:${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
   });
 }
 
