@@ -1,0 +1,23 @@
+﻿{
+  mcpServers: {
+    jira: {
+      type: rest-api,
+      env: {
+        JIRA_BASE_URL: ",
+ JIRA_PROJECT_KEY: ,
+ JIRA_EMAIL: ,
+ JIRA_API_TOKEN: 
+ },
+ description: MCP Tool for Atlassian Jira issue creation, comment posting, and status transitions
+ },
+ github: {
+ type: git-cli-and-api,
+ env: {
+ GITHUB_REPOSITORY: ,
+ GITHUB_TOKEN: ,
+ GITHUB_BASE_BRANCH: 
+ },
+ description: MCP Tool for GitHub branch management, Pull Requests creation, and review approvals
+ }
+ }
+}

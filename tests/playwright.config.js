@@ -21,7 +21,7 @@ module.exports = defineConfig({
     trace: 'on-first-retry'
   },
   webServer: {
-    command: 'node ../backend/server.js',
+    command: 'node ../app/backend/server.js',
     url: 'http://localhost:3000/api/health',
     reuseExistingServer: true,
     timeout: 15000

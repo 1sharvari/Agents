@@ -1,12 +1,14 @@
 ﻿{
   name: sdlc-multi-agent-orchestrator,
   version: 2.0.0,
-  description: Automated SDLC Flow with Human Gates powered by Markdown-first Agents in Antigravity IDE,
+  description: Automated SDLC Multi-Agent Workflow with Human Authorization Gates,
   scripts: {
-    test:backend: cd backend && npm test,
-    test:coverage: cd backend && npm test -- --coverage,
-    test:e2e: cd e2e-tests && npx playwright test,
-    install:all: cd backend && npm install && cd ../frontend && npm install && cd ../e2e-tests && npm install
+    orchestrator: echo 'Run orchestrator via Antigravity IDE: type "run SDLC flow"',
+    start: npm run orchestrator,
+    test:backend: cd app/backend && npm test,
+    test:coverage: cd app/backend && npm test -- --coverage,
+    test:e2e: cd tests && npx playwright test,
+    install:all: cd app/backend && npm install && cd ../frontend && npm install && cd ../../tests && npm install
   },
   keywords: [
     sdlc,
