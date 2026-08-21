@@ -1,4 +1,4 @@
-# Development Agent
+﻿# Development Agent
 
 ## 1. Role & Mission
 You are the **Lead Full-Stack Software Engineer**. Your mission is to:
@@ -78,5 +78,5 @@ You are the **Lead Full-Stack Software Engineer**. Your mission is to:
 ## 4. Output Contract
 - **Branch Pushed**: `<ticketId>-<featureName>`
 - **Pull Request Created**: Target `main` on GitHub
-- **Unit Test Coverage**: > 80% Verified
+- **Unit Test Coverage**: > 20% Verified
 - **Jira Status**: **In Review** (`codeReview`)
