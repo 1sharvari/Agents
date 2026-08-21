@@ -440,6 +440,7 @@ async function raiseGitHubPullRequest(ticket, branchName) {
   const repo = env.GITHUB_REPOSITORY || '1sharvari/Agents';
   const token = env.GITHUB_TOKEN;
   const base = env.GITHUB_BASE_BRANCH || 'main';
+  const owner = repo.split('/')[0];
   const prTitle = `[${ticket.key}] ${ticket.fields.summary}`;
   const prBody = `## 🚀 Automated Pull Request for ${ticket.key}\n\n` +
                  `### Feature Summary\n${ticket.fields.summary}\n\n` +
@@ -454,28 +455,33 @@ async function raiseGitHubPullRequest(ticket, branchName) {
                  `- [x] 400 Bad Request on missing parameters\n` +
                  `- [x] Health check and products catalog display`;
 
-  console.log(`    🚀 Raising GitHub Pull Request: '${branchName}' -> '${base}'...`);
+  console.log(`    🚀 Raising GitHub Pull Request: '${branchName}' -> '${base}' on ${repo}...`);
 
   try {
-    const listRes = await fetch(`https://api.github.com/repos/${repo}/pulls?head=${repo.split('/')[0]}:${branchName}`, {
+    // 1. Check if PR already exists
+    const listRes = await fetch(`https://api.github.com/repos/${repo}/pulls?head=${owner}:${branchName}&state=open`, {
       headers: {
-        'Authorization': 'token ' + token,
-        'Accept': 'application/vnd.github.v3+json',
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
         'User-Agent': 'Node-SDLC-Agent'
       }
     });
+
     const prs = await listRes.json();
     if (Array.isArray(prs) && prs.length > 0) {
-      console.log(`    ✅ Pull Request already active: ${prs[0].html_url}`);
+      console.log(`    ✅ Pull Request already active: ${prs[0].html_url} (#${prs[0].number})`);
       return prs[0].html_url;
     }
 
+    // 2. Create Pull Request
     const createRes = await fetch(`https://api.github.com/repos/${repo}/pulls`, {
       method: 'POST',
       headers: {
-        'Authorization': 'token ' + token,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'Accept': 'application/vnd.github.v3+json',
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
         'User-Agent': 'Node-SDLC-Agent'
       },
       body: JSON.stringify({
@@ -487,17 +493,22 @@ async function raiseGitHubPullRequest(ticket, branchName) {
     });
 
     const data = await createRes.json();
-    if (data.html_url) {
-      console.log(`    ✅ Pull Request created successfully: ${data.html_url}`);
+    if (createRes.ok && data.html_url) {
+      console.log(`    🎉 Pull Request created successfully on GitHub: ${data.html_url} (#${data.number})`);
       return data.html_url;
     } else {
-      const fallbackUrl = `https://github.com/${repo}/compare/${base}...${branchName}?expand=1`;
-      console.log(`    🔗 Pull Request Compare Link ready: ${fallbackUrl}`);
-      return fallbackUrl;
+      console.log(`    ⚠️  GitHub API Response (${createRes.status}):`, data.message || JSON.stringify(data));
+      if (createRes.status === 403) {
+        console.log(`    💡 Note: To allow the agent to create PRs automatically via GitHub API, ensure your GitHub Personal Access Token (PAT) has 'Pull requests: Read and write' permission.`);
+      }
+      const compareUrl = `https://github.com/${repo}/compare/${base}...${branchName}?expand=1`;
+      console.log(`    🔗 Pull Request Direct Link: ${compareUrl}`);
+      return data.html_url || compareUrl;
     }
   } catch (e) {
     const fallbackUrl = `https://github.com/${repo}/compare/${base}...${branchName}?expand=1`;
-    console.log(`    🔗 Pull Request Compare Link: ${fallbackUrl}`);
+    console.log(`    ⚠️ Error calling GitHub API: ${e.message}`);
+    console.log(`    🔗 Pull Request Direct Link: ${fallbackUrl}`);
     return fallbackUrl;
   }
 }
