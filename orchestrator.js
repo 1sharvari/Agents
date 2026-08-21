@@ -158,6 +158,178 @@ function extractCommentText(comment) {
   return '';
 }
 
+function extractTicketDescription(ticket) {
+  try {
+    if (!ticket || !ticket.fields || !ticket.fields.description) return '';
+    const desc = ticket.fields.description;
+    if (typeof desc === 'string') return desc;
+    if (desc.content && Array.isArray(desc.content)) {
+      return desc.content.map(block => {
+        if (block.content && Array.isArray(block.content)) {
+          return block.content.map(c => c.text || '').join('');
+        }
+        return '';
+      }).join('\n');
+    }
+  } catch (e) {}
+  return '';
+}
+
+function generateDetailedArchitecturePlan(ticket, isAlternative = false, feedbackText = '') {
+  const rawSummary = ticket.fields && ticket.fields.summary ? ticket.fields.summary : 'Feature Implementation';
+  const summary = rawSummary.replace(/^\[Feature\]\s*/i, '').trim();
+  const desc = extractTicketDescription(ticket) || (fs.existsSync(path.join(WORKSPACE_ROOT, 'requirement.md')) ? fs.readFileSync(path.join(WORKSPACE_ROOT, 'requirement.md'), 'utf8') : '');
+  
+  const textContext = `${summary} ${desc}`.toLowerCase();
+
+  // Detect domain areas in the feature
+  const isAuth = /login|auth|credential|password|token|signin|sign-in/i.test(textContext);
+  const isProduct = /product|catalog|item|shop|listing|inventory|goods/i.test(textContext);
+  const isCart = /cart|checkout|order|payment|basket|purchase|invoice/i.test(textContext);
+  const isProfile = /profile|account|setting|preference|user detail/i.test(textContext);
+  const isSearch = /search|filter|sort|query|find/i.test(textContext);
+
+  // Component structure
+  const componentsSection = 
+    `1. **Frontend Architecture (\`app/frontend/src/app/\`)**:\n` +
+    `   - \`app.module.ts\`: Root module configuring \`BrowserModule\`, \`ReactiveFormsModule\`, \`FormsModule\`, \`HttpClientModule\`\n` +
+    `   - \`app.component.ts\`: Angular component managing state, reactive form bindings, session persistence, and API subscriptions for ${summary}\n` +
+    `   - \`app.component.html\`: Semantic responsive template for ${summary} with status alert banners, action controls, and responsive grid layout\n` +
+    `   - \`app.component.css\`: Modern CSS styling with Flexbox/Grid responsive breakpoints and mobile compatibility\n` +
+    `2. **Backend Architecture (\`app/backend/server.js\`)**:\n` +
+    `   - Node.js Express REST API mock service with CORS headers, JSON body parser middleware, controller logic, and 500 error boundary`;
+
+  // Framework features
+  const featuresSection = 
+    `- **Angular**: Reactive Forms with \`FormBuilder\` and \`Validators.required\`, \`HttpClient\` observables, dynamic data binding, error handling\n` +
+    `- **Node.js Express**: RESTful endpoints, status code mapping (200, 400, 401, 404, 500), JSON payload handling, global error boundary`;
+
+  // Dynamic API Contracts based on feature domain
+  const endpointList = [];
+
+  if (isAuth) {
+    endpointList.push({
+      method: 'POST',
+      path: '/api/login',
+      reqHeader: 'Content-Type: application/json',
+      reqBody: '{"username": "testuser", "password": "password123"}',
+      res200: '{"success": true, "message": "Login successful", "user": {"username": "testuser", "token": "jwt-mock-token-12345"}}',
+      res400: '{"success": false, "message": "Username and password are required"}',
+      res401: '{"success": false, "message": "Invalid username or password"}'
+    });
+    endpointList.push({
+      method: 'GET',
+      path: '/api/user',
+      reqHeader: 'Accept: application/json',
+      reqBody: 'None',
+      res200: '{"success": true, "user": {"username": "testuser", "email": "testuser@example.com", "role": "Standard User"}}'
+    });
+  }
+
+  if (isProduct) {
+    endpointList.push({
+      method: 'GET',
+      path: '/api/products',
+      reqHeader: 'Accept: application/json',
+      reqBody: 'None (Query params: category, search)',
+      res200: '{"success": true, "products": [{"id": 1, "name": "Wireless Headphones", "price": 99.99, "category": "Electronics", "inStock": true}, {"id": 2, "name": "Ergonomic Keyboard", "price": 49.99, "category": "Accessories", "inStock": true}]}'
+    });
+  }
+
+  if (isCart) {
+    endpointList.push({
+      method: 'POST',
+      path: '/api/cart',
+      reqHeader: 'Content-Type: application/json',
+      reqBody: '{"productId": 1, "quantity": 2}',
+      res200: '{"success": true, "message": "Item added to cart", "cartTotal": 199.98, "itemsCount": 2}',
+      res400: '{"success": false, "message": "Valid productId and quantity are required"}'
+    });
+    endpointList.push({
+      method: 'POST',
+      path: '/api/checkout',
+      reqHeader: 'Content-Type: application/json',
+      reqBody: '{"cartId": "cart-123", "paymentMethod": "credit_card", "shippingAddress": "123 Main Street"}',
+      res200: '{"success": true, "orderId": "ORD-98765", "status": "CONFIRMED", "totalPaid": 199.98}',
+      res400: '{"success": false, "message": "Shipping address and payment details are required"}'
+    });
+  }
+
+  if (isProfile) {
+    endpointList.push({
+      method: 'PUT',
+      path: '/api/user/profile',
+      reqHeader: 'Content-Type: application/json',
+      reqBody: '{"email": "updated@example.com", "displayName": "Alex User"}',
+      res200: '{"success": true, "message": "Profile updated successfully", "profile": {"email": "updated@example.com", "displayName": "Alex User"}}',
+      res400: '{"success": false, "message": "Valid email is required"}'
+    });
+  }
+
+  if (isSearch) {
+    endpointList.push({
+      method: 'GET',
+      path: '/api/search',
+      reqHeader: 'Accept: application/json',
+      reqBody: 'None (Query param: ?q=<term>)',
+      res200: '{"success": true, "results": [{"id": 1, "title": "Matching Result", "relevance": 0.95}]}',
+      res400: '{"success": false, "message": "Query parameter q is required"}'
+    });
+  }
+
+  // Fallback endpoint if domain was generic
+  if (endpointList.length === 0) {
+    endpointList.push({
+      method: 'POST',
+      path: '/api/feature',
+      reqHeader: 'Content-Type: application/json',
+      reqBody: '{"action": "execute", "payload": {}}',
+      res200: '{"success": true, "message": "Feature executed successfully", "data": {}}',
+      res400: '{"success": false, "message": "Invalid request payload"}'
+    });
+  }
+
+  // Always include health check
+  endpointList.push({
+    method: 'GET',
+    path: '/api/health',
+    reqHeader: 'Accept: application/json',
+    reqBody: 'None',
+    res200: '{"success": true, "message": "Backend is running", "timestamp": "<ISO-8601>"}'
+  });
+
+  // Format endpoints
+  let endpointsSection = endpointList.map(ep => {
+    let s = `- **\`${ep.method} ${ep.path}\`**:\n` +
+            `  - Request Header: \`${ep.reqHeader}\`\n` +
+            `  - Request Body: \`${ep.reqBody}\`\n` +
+            `  - 200 OK: \`${ep.res200}\``;
+    if (ep.res400) s += `\n  - 400 Bad Request: \`${ep.res400}\``;
+    if (ep.res401) s += `\n  - 401 Unauthorized: \`${ep.res401}\``;
+    return s;
+  }).join('\n');
+
+  endpointsSection += '\n- **`404 Not Found & 500 Error Boundaries`**:\n' +
+                      '  - 404: `{"success": false, "error": "Endpoint not found"}`\n' +
+                      '  - 500: `{"success": false, "error": "Internal server error"}`';
+
+  const planTitle = isAlternative
+    ? `## 📐 Alternative Technical Architecture & Development Plan: ${summary}`
+    : `## 📐 Technical Architecture & Development Plan: ${summary}`;
+
+  return `${planTitle}\n\n` +
+         (isAlternative && feedbackText ? `> **Feedback Addressed**: *"${feedbackText}"*\n\n` : '') +
+         `### 1. Component Structure & Architecture\n${componentsSection}\n\n` +
+         `### 2. Framework Features & Patterns\n${featuresSection}\n\n` +
+         `### 3. API Request & Response Contracts\n${endpointsSection}\n\n` +
+         `### 4. Unit Testing & Quality Gate Strategy\n` +
+         `- Author Jest unit tests in \`app/backend/server.test.js\` covering 100% of endpoints (${endpointList.map(e => `${e.method} ${e.path}`).join(', ')})\n` +
+         `- Test Scenarios: Happy path responses, input validation errors, unauthorized access, 404 routes, and 500 error boundaries\n` +
+         `- Code Coverage Requirement: Strictly **> 80%** on Statements, Branches, Functions, and Lines\n` +
+         `- **Quality Gate**: Development Agent will only raise PR to \`main\` and transition ticket to \`${STATUS_DICT.codeReview}\` if all unit tests pass and coverage is > 80%.\n\n` +
+         `- **Status**: Architecture Plan formulated and ready for human review.`;
+}
+
 // -------------------------------------------------------------
 // Specialized Agent Handlers
 // -------------------------------------------------------------
@@ -210,13 +382,13 @@ async function runArchitectureAgent(ticket) {
   const comments = await getTicketComments(ticket.key);
   const commentTexts = comments.map(extractCommentText);
 
-  // Check if initial architecture plan has already been posted
-  const planIndex = commentTexts.findIndex(t => /## 📐 Technical Architecture & Development Plan/i.test(t));
+  // Check if architecture plan has already been posted
+  const planIndex = commentTexts.findIndex(t => /## 📐 (?:Alternative )?Technical Architecture & Development Plan/i.test(t));
   const hasPlan = planIndex !== -1;
 
   // Check if human asked for alternative plan (especially comments after the initial plan)
   const subsequentComments = hasPlan ? commentTexts.slice(planIndex + 1) : commentTexts;
-  const humanRequestsAlternative = subsequentComments.some(t =>
+  const humanFeedbackComment = subsequentComments.find(t =>
     /need other plan|different plan|revise plan|alternative plan|change plan|alternative|other plan/i.test(t)
   );
 
@@ -224,34 +396,9 @@ async function runArchitectureAgent(ticket) {
   const alternativePlanIndex = commentTexts.findIndex(t => /## 📐 Alternative Technical Architecture & Development Plan/i.test(t));
   const hasAlternativePlan = alternativePlanIndex !== -1;
 
-  if (humanRequestsAlternative && (!hasAlternativePlan || alternativePlanIndex < planIndex)) {
+  if (humanFeedbackComment && (!hasAlternativePlan || alternativePlanIndex < planIndex)) {
     console.log('    💬 Human feedback received requesting an alternative architecture plan.');
-    const altPlan = '## 📐 Alternative Technical Architecture & Development Plan\n\n' +
-                    '### 1. Component Structure & Architecture\n' +
-                    '- `app/frontend/src/app/app.module.ts`: Root module importing `BrowserModule`, `ReactiveFormsModule`, `FormsModule`, `HttpClientModule`\n' +
-                    '- `app/frontend/src/app/app.component.ts`: Standalone Angular component managing reactive login form, session storage, catalogue state, and health checking\n' +
-                    '- `app/frontend/src/app/app.component.html`: Template with Login Card, Alert Banner, Health Status Bar, and Product Catalog Grid\n' +
-                    '- `app/frontend/src/app/app.component.css`: Modern responsive CSS with Flexbox/Grid layout and mobile breakpoints\n' +
-                    '- `app/backend/server.js`: Node.js Express service with CORS, JSON body parser, and error boundary\n\n' +
-                    '### 2. Features & Patterns\n' +
-                    '- **Angular**: Reactive Forms with `Validators.required`, `HttpClient` observables, responsive data binding\n' +
-                    '- **Node.js**: Modular Express routing, hardcoded mock responses, HTTP status code mapping\n\n' +
-                    '### 3. API Request & Response Contracts\n' +
-                    '- **`POST /api/login`**:\n' +
-                    '  - Request: `Content-Type: application/json`, Body: `{"username": "testuser", "password": "password123"}`\n' +
-                    '  - 200 OK: `{"success": true, "message": "Login successful", "user": {"username": "testuser", "token": "jwt-token-..."}}`\n' +
-                    '  - 400 Bad Request: `{"success": false, "message": "Username and password are required"}`\n' +
-                    '  - 401 Unauthorized: `{"success": false, "message": "Invalid username or password"}`\n' +
-                    '- **`GET /api/health`**:\n' +
-                    '  - 200 OK: `{"success": true, "message": "Backend is running", "timestamp": "<ISO-8601>"}`\n' +
-                    '- **`GET /api/user`**:\n' +
-                    '  - 200 OK: `{"success": true, "user": {"username": "testuser", "email": "testuser@example.com", "role": "Standard User"}}`\n' +
-                    '- **`GET /api/products`**:\n' +
-                    '  - 200 OK: `{"success": true, "products": [{"id": 1, "name": "Wireless Headphones", "price": 99.99, "category": "Electronics", "inStock": true}]}`\n\n' +
-                    '### 4. Unit Testing & Quality Gate\n' +
-                    '- Jest unit tests in `app/backend/server.test.js` covering 100% of endpoints\n' +
-                    '- Code Coverage Requirement: Strictly **> 80%** on Statements, Branches, Functions, and Lines\n' +
-                    '- Status: Alternative Plan ready for human authorization.';
+    const altPlan = generateDetailedArchitecturePlan(ticket, true, humanFeedbackComment.trim());
     await addComment(ticket.key, altPlan);
 
     console.log('\n🛑 [HUMAN GATE 2]: Alternative Development Plan posted to Jira comments.');
@@ -262,37 +409,8 @@ async function runArchitectureAgent(ticket) {
   }
 
   if (!hasPlan) {
-    console.log('    📝 Generating detailed Development Plan for ticket...');
-    const archPlan = '## 📐 Technical Architecture & Development Plan\n\n' +
-                     '### 1. Component Structure & Architecture\n' +
-                     '- `app/frontend/src/app/app.module.ts`: Root module importing `BrowserModule`, `ReactiveFormsModule`, `FormsModule`, `HttpClientModule`\n' +
-                     '- `app/frontend/src/app/app.component.ts`: Component managing reactive login form, session storage, catalogue state, and health checking\n' +
-                     '- `app/frontend/src/app/app.component.html`: Semantic template with Login Card, Alert Banner, Health Status Bar, and Product Catalog Grid\n' +
-                     '- `app/frontend/src/app/app.component.css`: Modern responsive CSS with Flexbox/Grid layout and mobile breakpoints\n' +
-                     '- `app/backend/server.js`: Node.js Express REST API mock service with CORS, JSON body parser, and error boundary\n\n' +
-                     '### 2. Features & Patterns\n' +
-                     '- **Angular**: Reactive Forms with `FormBuilder` and `Validators.required`, `HttpClient` observables, responsive data binding\n' +
-                     '- **Node.js**: Modular Express routing, hardcoded mock responses, HTTP status code mapping\n\n' +
-                     '### 3. API Request & Response Contracts\n' +
-                     '- **`POST /api/login`**:\n' +
-                     '  - Request: `Content-Type: application/json`, Body: `{"username": "testuser", "password": "password123"}`\n' +
-                     '  - 200 OK: `{"success": true, "message": "Login successful", "user": {"username": "testuser", "token": "jwt-mock-token-12345"}}`\n' +
-                     '  - 400 Bad Request: `{"success": false, "message": "Username and password are required"}`\n' +
-                     '  - 401 Unauthorized: `{"success": false, "message": "Invalid username or password"}`\n' +
-                     '- **`GET /api/health`**:\n' +
-                     '  - 200 OK: `{"success": true, "message": "Backend is running", "timestamp": "<ISO-8601>"}`\n' +
-                     '- **`GET /api/user`**:\n' +
-                     '  - 200 OK: `{"success": true, "user": {"username": "testuser", "email": "testuser@example.com", "role": "Standard User"}}`\n' +
-                     '- **`GET /api/products`**:\n' +
-                     '  - 200 OK: `{"success": true, "products": [{"id": 1, "name": "Wireless Headphones", "price": 99.99, "category": "Electronics", "inStock": true}, {"id": 2, "name": "Ergonomic Keyboard", "price": 49.99, "category": "Accessories", "inStock": true}]}`\n' +
-                     '- **`404 Not Found & 500 Error Boundary`**:\n' +
-                     '  - 404: `{"success": false, "error": "Endpoint not found"}`\n' +
-                     '  - 500: `{"success": false, "error": "Internal server error"}`\n\n' +
-                     '### 4. Unit Testing & Quality Gate\n' +
-                     '- Jest unit tests in `app/backend/server.test.js` covering 100% of endpoints and status codes (200, 400, 401, 404, 500)\n' +
-                     '- Code Coverage Requirement: Strictly **> 80%** on Statements, Branches, Functions, and Lines\n' +
-                     '- Quality Gate: Only after 100% tests pass and coverage > 80% will the Development Agent raise PR to main and transition ticket to In Review.\n' +
-                     '- Status: Architecture Approved and Ready for Development.';
+    console.log('    📝 Generating detailed Development Plan for feature: "' + ticket.fields.summary + '"...');
+    const archPlan = generateDetailedArchitecturePlan(ticket, false);
     await addComment(ticket.key, archPlan);
 
     console.log('\n🛑 [HUMAN GATE 2]: Detailed Development Plan added to Jira comments.');
@@ -307,6 +425,7 @@ async function runArchitectureAgent(ticket) {
     console.log(`    👉 If alternative plan needed: Add a comment in Jira (e.g. 'need other plan with X') and rerun the orchestrator.`);
   }
 }
+
 
 async function raiseGitHubPullRequest(ticket, branchName) {
   const repo = env.GITHUB_REPOSITORY || '1sharvari/Agents';
