@@ -400,49 +400,119 @@ function generateDetailedArchitecturePlan(ticket, isAlternative = false, feedbac
 // Specialized Agent Handlers
 // -------------------------------------------------------------
 
-async function runBusinessAgent(existingTicket = null) {
-  console.log('\n>>> [1/5] 📋 Business Agent: Reading requirement.md & Checking User Story...');
-  const reqPath = path.join(WORKSPACE_ROOT, 'requirement.md');
-  const reqText = fs.readFileSync(reqPath, 'utf8');
-  const titleMatch = reqText.match(/Feature Title:\s*(.*)/i) || reqText.match(/#\s*(.*)/);
-  const title = titleMatch ? titleMatch[1].trim() : 'User Authentication & Product Catalog Flow';
+function parseRequirements(reqText) {
+  const featureBlocks = [];
+  const lines = reqText.split('\n');
+  let currentBlock = null;
 
-  // Prevent duplicate ticket creation
+  for (const line of lines) {
+    // Explicit Feature / Story delimiters (e.g. ## Feature Title: ... or ## Feature: ... or ## Story: ...)
+    const featureMatch = line.match(/^#{1,3}\s+(?:Feature Title:?\s*|Feature:?\s*|User Story:?\s*|Story:?\s*)(.*)/i);
+    
+    if (featureMatch && featureMatch[1].trim()) {
+      const headerTitle = featureMatch[1].trim();
+      if (!/^(?:Product Requirements Specification|Overview|User Stories|Acceptance Criteria|Technical Specifications|\d+\.)/i.test(headerTitle)) {
+        if (currentBlock) featureBlocks.push(currentBlock);
+        currentBlock = {
+          title: headerTitle,
+          content: [line]
+        };
+        continue;
+      }
+    }
+
+    if (currentBlock) {
+      currentBlock.content.push(line);
+    }
+  }
+  if (currentBlock) featureBlocks.push(currentBlock);
+
+  // Fallback if whole file is a single specification
+  if (featureBlocks.length === 0) {
+    const singleTitleMatch = reqText.match(/Feature Title:\s*(.*)/i) || reqText.match(/#\s*(.*)/);
+    const title = singleTitleMatch ? singleTitleMatch[1].trim() : 'User Authentication & Product Catalog Flow';
+    featureBlocks.push({
+      title: title,
+      content: [reqText]
+    });
+  }
+
+  return featureBlocks.map(b => ({
+    title: b.title.replace(/^\[Feature\]\s*/i, '').trim(),
+    text: b.content.join('\n').trim()
+  }));
+}
+
+async function syncRequirementsWithBoard(boardTickets) {
+  console.log('\n>>> [1/5] 📋 Business Agent: Reading requirement.md & Checking User Stories...');
+  const reqPath = path.join(WORKSPACE_ROOT, 'requirement.md');
+  if (!fs.existsSync(reqPath)) {
+    console.log('    ℹ️ No requirement.md found in workspace.');
+    return;
+  }
+
+  const reqText = fs.readFileSync(reqPath, 'utf8');
+  const reqs = parseRequirements(reqText);
+  console.log(`    Found ${reqs.length} requirement specification(s) in requirement.md.`);
+
+  for (const req of reqs) {
+    // Check if ticket for this requirement already exists on board
+    const cleanTitle = req.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const existing = boardTickets.find(t => {
+      const summaryClean = (t.fields.summary || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return summaryClean.includes(cleanTitle) || cleanTitle.includes(summaryClean);
+    });
+
+    if (existing) {
+      saveActiveTicket(existing.key);
+      console.log(`    ℹ️ Existing ticket found: ${existing.key} - "${existing.fields.summary}" (Status: ${existing.fields.status.name})`);
+      if (existing.fields.status.name.toLowerCase() === 'to do' || existing.fields.status.name.toLowerCase() === 'todo') {
+        console.log(`\n🛑 [HUMAN GATE 1]: User Story ${existing.key} is in "To Do".`);
+        console.log(`    👉 Please review the story at ${baseUrl}/browse/${existing.key}`);
+        console.log(`    👉 Transition ticket to '${STATUS_DICT.devReady}' in Jira to authorize Architecture Agent.`);
+      }
+    } else {
+      console.log(`    ➕ Creating new Jira Story for requirement: "${req.title}"...`);
+      const created = await jiraRequest('/rest/api/3/issue', {
+        method: 'POST',
+        body: JSON.stringify({
+          fields: {
+            project: { key: env.JIRA_PROJECT_KEY },
+            summary: '[Feature] ' + req.title,
+            issuetype: { name: 'Story' },
+            description: {
+              type: 'doc',
+              version: 1,
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: req.text }] }]
+            },
+            labels: ['sdlc-automated', 'business-agent']
+          }
+        })
+      });
+
+      saveActiveTicket(created.key);
+      console.log(`    ✅ Created Ticket: ${created.key} (${baseUrl}/browse/${created.key})`);
+      console.log(`    Status: ${STATUS_DICT.toDo}`);
+      console.log(`\n🛑 [HUMAN GATE 1]: User Story ${created.key} created in "To Do".`);
+      console.log(`    👉 Please review the story at ${baseUrl}/browse/${created.key}`);
+      console.log(`    👉 Transition ticket to '${STATUS_DICT.devReady}' in Jira to authorize Architecture Agent.`);
+    }
+  }
+}
+
+async function runBusinessAgent(existingTicket = null) {
   if (existingTicket) {
     saveActiveTicket(existingTicket.key);
-    console.log(`    ℹ️ Existing ticket found: ${existingTicket.key} - "${existingTicket.fields.summary}" (Status: ${existingTicket.fields.status.name})`);
+    console.log(`\n>>> [1/5] 📋 Business Agent: Checking User Story for ${existingTicket.key}...`);
     console.log(`    Active Ticket: ${existingTicket.key} (${baseUrl}/browse/${existingTicket.key})`);
     console.log(`    Status: ${existingTicket.fields.status.name}`);
-    console.log('\n🛑 [HUMAN GATE 1]: User Story is in "To Do".');
+    console.log(`\n🛑 [HUMAN GATE 1]: User Story ${existingTicket.key} is in "To Do".`);
     console.log(`    👉 Please review the story at ${baseUrl}/browse/${existingTicket.key}`);
     console.log(`    👉 Transition ticket to '${STATUS_DICT.devReady}' in Jira to authorize Architecture Agent.`);
     return existingTicket.key;
   }
-
-  const created = await jiraRequest('/rest/api/3/issue', {
-    method: 'POST',
-    body: JSON.stringify({
-      fields: {
-        project: { key: env.JIRA_PROJECT_KEY },
-        summary: '[Feature] ' + title,
-        issuetype: { name: 'Story' },
-        description: {
-          type: 'doc',
-          version: 1,
-          content: [{ type: 'paragraph', content: [{ type: 'text', text: reqText }] }]
-        },
-        labels: ['sdlc-automated', 'business-agent', 'auth', 'catalog']
-      }
-    })
-  });
-
-  saveActiveTicket(created.key);
-  console.log(`    Created Ticket: ${created.key} (${baseUrl}/browse/${created.key})`);
-  console.log(`    Status: ${STATUS_DICT.toDo}`);
-  console.log('\n🛑 [HUMAN GATE 1]: User Story created in "To Do".');
-  console.log(`    👉 Please review the story at ${baseUrl}/browse/${created.key}`);
-  console.log(`    👉 Transition ticket to '${STATUS_DICT.devReady}' in Jira to authorize Architecture Agent.`);
-  return created.key;
+  const boardTickets = await getBoardTickets();
+  await syncRequirementsWithBoard(boardTickets);
 }
 
 async function runArchitectureAgent(ticket) {
@@ -1783,45 +1853,77 @@ async function main() {
   console.log('GitHub Repo:   ', env.GITHUB_REPOSITORY);
   console.log('================================================================\n');
 
-  console.log('🔍 Scanning Jira Board for Active Tickets...');
-  const tickets = await getBoardTickets();
+  console.log('🔍 Scanning Jira Board & Synchronizing requirements.md...');
+  let tickets = await getBoardTickets();
 
-  // Find active (non-Done) ticket or latest ticket
-  const activeTicket = tickets.find(t => t.fields.status.name.toLowerCase() !== 'done') || (tickets.length > 0 ? tickets[0] : null);
+  // 1. Business Agent checks requirement.md and creates Jira user stories for any new requirements
+  await syncRequirementsWithBoard(tickets);
 
-  if (!activeTicket) {
-    console.log('ℹ️ No active tickets found on Jira Board.');
-    await runBusinessAgent();
+  // 2. Refresh board tickets after potential creation
+  tickets = await getBoardTickets();
+
+  if (tickets.length === 0) {
+    console.log('ℹ️ No tickets found on Jira Board.');
     return;
   }
 
-  saveActiveTicket(activeTicket.key);
-  const statusName = activeTicket.fields.status.name;
-  console.log(`📌 Found Active Ticket: ${activeTicket.key} - "${activeTicket.fields.summary}"`);
-  console.log(`   Current Jira Status: [${statusName}]`);
+  // 3. Display current Board Summary & Agent Assignment Matrix
+  console.log('\n================================================================');
+  console.log('📊 CURRENT JIRA BOARD STATUS & AGENT ASSIGNMENT MATRIX');
+  console.log('================================================================');
+  tickets.forEach((t, idx) => {
+    const sName = t.fields.status.name;
+    const norm = sName.toLowerCase().trim();
+    let assignedAgent = 'Unknown';
+    if (norm === 'to do' || norm === 'todo') assignedAgent = '📋 Business Agent (Human Gate 1)';
+    else if (norm === 'dev ready') assignedAgent = '📐 Architecture Agent (Human Gate 2)';
+    else if (norm === 'in dev' || norm === 'in progress') assignedAgent = '💻 Development Agent';
+    else if (norm === 'in review' || norm === 'code review') assignedAgent = '🔍 Review Agent (Human Gate 3)';
+    else if (norm === 'qa ready') assignedAgent = '🎭 QA Automation Agent';
+    else if (norm === 'qa pass' || norm === 'deployment ready') assignedAgent = '🚀 Release Agent';
+    else if (norm === 'done') assignedAgent = '✅ Completed';
 
-  const normStatus = statusName.toLowerCase().trim();
+    console.log(` [${idx + 1}] ${t.key.padEnd(8)} | Status: [${sName.padEnd(12)}] | Agent: ${assignedAgent}`);
+    console.log(`     Summary: "${t.fields.summary}"`);
+  });
+  console.log('================================================================\n');
 
-  if (normStatus === 'to do' || normStatus === 'todo') {
-    await runBusinessAgent(activeTicket);
-  } else if (normStatus === 'dev ready') {
-    await runArchitectureAgent(activeTicket);
-  } else if (normStatus === 'in dev' || normStatus === 'in progress') {
-    await runDevelopmentAgent(activeTicket);
-  } else if (normStatus === 'in review' || normStatus === 'code review') {
-    await runReviewAgent(activeTicket);
-  } else if (normStatus === 'qa ready') {
-    await runQAAgent(activeTicket);
-  } else if (normStatus === 'qa pass' || normStatus === 'deployment ready') {
-    console.log(`\n🚀 Finalizing deployment for ${activeTicket.key}...`);
-    await transitionTo(activeTicket.key, STATUS_DICT.done);
-    clearStoredActiveTicket();
-    console.log(`🎉 Ticket ${activeTicket.key} is DONE!`);
-  } else if (normStatus === 'done') {
-    clearStoredActiveTicket();
-    console.log(`\n✅ Ticket ${activeTicket.key} is already DONE. To start a new cycle, update requirement.md or create a new ticket.`);
-  } else {
-    console.log(`\n⚠️ Unknown ticket status: [${statusName}]. Supported statuses: ${Object.values(STATUS_DICT).join(', ')}`);
+  // 4. Process all active tickets
+  const activeTickets = tickets.filter(t => t.fields.status.name.toLowerCase() !== 'done');
+
+  if (activeTickets.length === 0) {
+    console.log('🎉 All tickets on the board are in DONE status.');
+    console.log('👉 To start a new SDLC cycle, add a new user story to requirement.md and run the orchestrator.');
+    return;
+  }
+
+  for (const activeTicket of activeTickets) {
+    saveActiveTicket(activeTicket.key);
+    const statusName = activeTicket.fields.status.name;
+    const normStatus = statusName.toLowerCase().trim();
+
+    console.log(`\n----------------------------------------------------------------`);
+    console.log(`🎯 Processing Ticket: ${activeTicket.key} - "${activeTicket.fields.summary}"`);
+    console.log(`   Current Jira Status: [${statusName}]`);
+    console.log(`----------------------------------------------------------------`);
+
+    if (normStatus === 'to do' || normStatus === 'todo') {
+      await runBusinessAgent(activeTicket);
+    } else if (normStatus === 'dev ready') {
+      await runArchitectureAgent(activeTicket);
+    } else if (normStatus === 'in dev' || normStatus === 'in progress') {
+      await runDevelopmentAgent(activeTicket);
+    } else if (normStatus === 'in review' || normStatus === 'code review') {
+      await runReviewAgent(activeTicket);
+    } else if (normStatus === 'qa ready') {
+      await runQAAgent(activeTicket);
+    } else if (normStatus === 'qa pass' || normStatus === 'deployment ready') {
+      console.log(`\n🚀 Finalizing deployment for ${activeTicket.key}...`);
+      await transitionTo(activeTicket.key, STATUS_DICT.done);
+      console.log(`🎉 Ticket ${activeTicket.key} is DONE!`);
+    } else {
+      console.log(`\n⚠️ Unknown ticket status: [${statusName}]. Supported statuses: ${Object.values(STATUS_DICT).join(', ')}`);
+    }
   }
 }
 
