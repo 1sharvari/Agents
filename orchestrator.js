@@ -79,24 +79,80 @@ async function jiraRequest(endpoint, options = {}) {
   return res.json();
 }
 
-async function getBoardTickets() {
+const ACTIVE_TICKET_FILE = path.join(WORKSPACE_ROOT, '.active_ticket.json');
+
+function saveActiveTicket(ticketKey) {
   try {
-    const data = await jiraRequest('/rest/api/3/search/jql?jql=' + encodeURIComponent('project = ' + env.JIRA_PROJECT_KEY + ' ORDER BY created DESC') + '&fields=summary,status,description,labels,comment');
-    if (data && data.issues && data.issues.length > 0) {
-      return data.issues;
+    fs.writeFileSync(ACTIVE_TICKET_FILE, JSON.stringify({ key: ticketKey, updatedAt: new Date().toISOString() }, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getStoredActiveTicketKey() {
+  try {
+    if (fs.existsSync(ACTIVE_TICKET_FILE)) {
+      const data = JSON.parse(fs.readFileSync(ACTIVE_TICKET_FILE, 'utf8'));
+      return data.key || null;
     }
   } catch (e) {}
+  return null;
+}
 
+function clearStoredActiveTicket() {
+  try {
+    if (fs.existsSync(ACTIVE_TICKET_FILE)) {
+      fs.unlinkSync(ACTIVE_TICKET_FILE);
+    }
+  } catch (e) {}
+}
+
+async function getBoardTickets() {
+  const issuesMap = new Map();
+
+  // 1. Check Stored Active Ticket first
+  const storedKey = getStoredActiveTicketKey();
+  if (storedKey) {
+    try {
+      const issue = await jiraRequest('/rest/api/3/issue/' + storedKey);
+      if (issue && issue.key) {
+        issuesMap.set(issue.key, issue);
+      }
+    } catch (e) {}
+  }
+
+  // 2. Query Agile Board Issues
   if (env.JIRA_BOARD_ID) {
     try {
       const boardData = await jiraRequest('/rest/agile/1.0/board/' + env.JIRA_BOARD_ID + '/issue');
       if (boardData && boardData.issues) {
-        return boardData.issues;
+        boardData.issues.forEach(i => issuesMap.set(i.key, i));
+      }
+    } catch (e) {}
+
+    // 3. Query Agile Board Backlog
+    try {
+      const backlogData = await jiraRequest('/rest/agile/1.0/board/' + env.JIRA_BOARD_ID + '/backlog');
+      if (backlogData && backlogData.issues) {
+        backlogData.issues.forEach(i => issuesMap.set(i.key, i));
       }
     } catch (e) {}
   }
-  return [];
+
+  // 4. Scan recent ticket keys downwards if map is empty
+  if (issuesMap.size === 0) {
+    for (let i = 50; i >= 1; i--) {
+      try {
+        const issue = await jiraRequest('/rest/api/3/issue/' + env.JIRA_PROJECT_KEY + '-' + i);
+        if (issue && issue.key) {
+          issuesMap.set(issue.key, issue);
+          if (issue.fields.status.name.toLowerCase() !== 'done') break;
+        }
+      } catch (e) {}
+    }
+  }
+
+  return Array.from(issuesMap.values());
 }
+
 
 async function transitionTo(ticketKey, statusName) {
   try {
@@ -353,6 +409,7 @@ async function runBusinessAgent(existingTicket = null) {
 
   // Prevent duplicate ticket creation
   if (existingTicket) {
+    saveActiveTicket(existingTicket.key);
     console.log(`    ℹ️ Existing ticket found: ${existingTicket.key} - "${existingTicket.fields.summary}" (Status: ${existingTicket.fields.status.name})`);
     console.log(`    Active Ticket: ${existingTicket.key} (${baseUrl}/browse/${existingTicket.key})`);
     console.log(`    Status: ${existingTicket.fields.status.name}`);
@@ -379,6 +436,7 @@ async function runBusinessAgent(existingTicket = null) {
     })
   });
 
+  saveActiveTicket(created.key);
   console.log(`    Created Ticket: ${created.key} (${baseUrl}/browse/${created.key})`);
   console.log(`    Status: ${STATUS_DICT.toDo}`);
   console.log('\n🛑 [HUMAN GATE 1]: User Story created in "To Do".');
@@ -1689,6 +1747,7 @@ async function runQAAgent(ticket) {
     await transitionTo(ticket.key, STATUS_DICT.qaPass);
     await transitionTo(ticket.key, STATUS_DICT.deploymentReady);
     await transitionTo(ticket.key, STATUS_DICT.done);
+    clearStoredActiveTicket();
 
     // Merge feature branch to main
     const branchName = `${ticket.key}-user-auth-product-catalog`.toLowerCase();
@@ -1736,6 +1795,7 @@ async function main() {
     return;
   }
 
+  saveActiveTicket(activeTicket.key);
   const statusName = activeTicket.fields.status.name;
   console.log(`📌 Found Active Ticket: ${activeTicket.key} - "${activeTicket.fields.summary}"`);
   console.log(`   Current Jira Status: [${statusName}]`);
@@ -1755,8 +1815,10 @@ async function main() {
   } else if (normStatus === 'qa pass' || normStatus === 'deployment ready') {
     console.log(`\n🚀 Finalizing deployment for ${activeTicket.key}...`);
     await transitionTo(activeTicket.key, STATUS_DICT.done);
+    clearStoredActiveTicket();
     console.log(`🎉 Ticket ${activeTicket.key} is DONE!`);
   } else if (normStatus === 'done') {
+    clearStoredActiveTicket();
     console.log(`\n✅ Ticket ${activeTicket.key} is already DONE. To start a new cycle, update requirement.md or create a new ticket.`);
   } else {
     console.log(`\n⚠️ Unknown ticket status: [${statusName}]. Supported statuses: ${Object.values(STATUS_DICT).join(', ')}`);
@@ -1764,4 +1826,3 @@ async function main() {
 }
 
 main().catch(console.error);
-
