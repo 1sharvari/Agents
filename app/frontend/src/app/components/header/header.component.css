@@ -1,0 +1,67 @@
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.header-brand h1 {
+  margin: 0;
+  font-size: 22px;
+  color: #111827;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.nav-links a {
+  color: #4b5563;
+  text-decoration: none;
+  font-weight: 500;
+}
+.nav-links a.active-link {
+  color: #2563eb;
+  font-weight: 700;
+}
+.user-greeting {
+  font-weight: 600;
+  color: #0369a1;
+}
+.btn-logout {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.health-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.health-badge.healthy {
+  background-color: #def7ec;
+  color: #03543f;
+}
+.health-badge.unhealthy {
+  background-color: #fde8e8;
+  color: #9b1c1c;
+}
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+}

@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Application Shell Component hosting header and router-outlet.
+ * @module AppComponent
+ * @feature SHOP-28 - [Feature] User Authentication & Product Catalog Flow
+ */
+
 import { Component } from '@angular/core';
 
 @Component({
@@ -6,5 +12,5 @@ import { Component } from '@angular/core';
   styleUrls: ['./app.component.css']
 })
 export class AppComponent {
-  title = 'shop';
+  title = 'SHOP Multi-Agent Platform';
 }
