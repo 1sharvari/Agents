@@ -189,19 +189,29 @@ function generateDetailedArchitecturePlan(ticket, isAlternative = false, feedbac
   const isProfile = /profile|account|setting|preference|user detail/i.test(textContext);
   const isSearch = /search|filter|sort|query|find/i.test(textContext);
 
-  // Component structure
+  // Multi-Component Architecture Breakdown
   const componentsSection = 
-    `1. **Frontend Architecture (\`app/frontend/src/app/\`)**:\n` +
-    `   - \`app.module.ts\`: Root module configuring \`BrowserModule\`, \`ReactiveFormsModule\`, \`FormsModule\`, \`HttpClientModule\`\n` +
-    `   - \`app.component.ts\`: Angular component managing state, reactive form bindings, session persistence, and API subscriptions for ${summary}\n` +
-    `   - \`app.component.html\`: Semantic responsive template for ${summary} with status alert banners, action controls, and responsive grid layout\n` +
-    `   - \`app.component.css\`: Modern CSS styling with Flexbox/Grid responsive breakpoints and mobile compatibility\n` +
-    `2. **Backend Architecture (\`app/backend/server.js\`)**:\n` +
+    `1. **Root & Application Shell (\`app/frontend/src/app/\`)**:\n` +
+    `   - \`app.module.ts\`: Root module configuring \`BrowserModule\`, \`AppRoutingModule\`, \`ReactiveFormsModule\`, \`FormsModule\`, \`HttpClientModule\`, declaring all components\n` +
+    `   - \`app-routing.module.ts\`: Angular client-side router configuring paths (\`/login\`, \`/products\`, default redirect, wildcard 404)\n` +
+    `   - \`app.component.ts\`, \`html\`, \`css\`: App Shell hosting \`<app-header>\` navigation and \`<router-outlet>\` view container\n` +
+    `2. **Shared & Feature Components (\`app/frontend/src/app/components/\`)**:\n` +
+    `   - \`components/header/\`: Header navbar displaying app brand, navigation links, logged-in user badge, and live backend health status indicator\n` +
+    `   - \`components/login/\`: Dedicated Login form component with reactive validation (\`FormBuilder\`, \`Validators.required\`), error banners, and authentication submit handler\n` +
+    `   - \`components/product-catalog/\`: Dedicated Product Catalog component with responsive grid cards, category filters, and in-stock badges\n` +
+    `3. **Services & Reactive State Management (\`app/frontend/src/app/services/\`)**:\n` +
+    `   - \`services/auth.service.ts\`: Authentication state service managing \`currentUser$\` RxJS \`BehaviorSubject\`, login HTTP calls, and session persistence in \`localStorage\`\n` +
+    `   - \`services/product.service.ts\`: Product service handling catalog HTTP fetching and caching\n` +
+    `   - \`services/health.service.ts\`: Health service monitoring backend availability\n` +
+    `4. **TypeScript Models (\`app/frontend/src/app/models/\`)**:\n` +
+    `   - \`models/user.model.ts\`: Interface definitions for \`User\`, \`LoginCredentials\`, \`AuthResponse\`\n` +
+    `   - \`models/product.model.ts\`: Interface definitions for \`Product\`\n` +
+    `5. **Backend Architecture (\`app/backend/server.js\`)**:\n` +
     `   - Node.js Express REST API mock service with CORS headers, JSON body parser middleware, controller logic, and 500 error boundary`;
 
   // Framework features
   const featuresSection = 
-    `- **Angular**: Reactive Forms with \`FormBuilder\` and \`Validators.required\`, \`HttpClient\` observables, dynamic data binding, error handling\n` +
+    `- **Angular**: Multi-component modular architecture, Angular Routing with \`RouterModule.forRoot()\`, Reactive Forms with \`FormBuilder\` and \`Validators.required\`, RxJS \`BehaviorSubject\` for cross-component reactive state management, \`HttpClient\` observables, responsive Flexbox/Grid CSS\n` +
     `- **Node.js Express**: RESTful endpoints, status code mapping (200, 400, 401, 404, 500), JSON payload handling, global error boundary`;
 
   // Dynamic API Contracts based on feature domain
@@ -319,7 +329,7 @@ function generateDetailedArchitecturePlan(ticket, isAlternative = false, feedbac
 
   return `${planTitle}\n\n` +
          (isAlternative && feedbackText ? `> **Feedback Addressed**: *"${feedbackText}"*\n\n` : '') +
-         `### 1. Component Structure & Architecture\n${componentsSection}\n\n` +
+         `### 1. Multi-Component Architecture & File Structure\n${componentsSection}\n\n` +
          `### 2. Framework Features & Patterns\n${featuresSection}\n\n` +
          `### 3. API Request & Response Contracts\n${endpointsSection}\n\n` +
          `### 4. Unit Testing & Quality Gate Strategy\n` +
@@ -426,7 +436,6 @@ async function runArchitectureAgent(ticket) {
   }
 }
 
-
 async function raiseGitHubPullRequest(ticket, branchName) {
   const repo = env.GITHUB_REPOSITORY || '1sharvari/Agents';
   const token = env.GITHUB_TOKEN;
@@ -435,8 +444,8 @@ async function raiseGitHubPullRequest(ticket, branchName) {
   const prBody = `## 🚀 Automated Pull Request for ${ticket.key}\n\n` +
                  `### Feature Summary\n${ticket.fields.summary}\n\n` +
                  `### Implementation Details\n` +
-                 `- **Frontend**: Angular UI components in \`app/frontend/\` with Reactive Forms.\n` +
-                 `- **Backend**: Node.js Express REST API in \`app/backend/server.js\` with mock responses for \`/api/login\`, \`/api/health\`, \`/api/user\`, \`/api/products\`.\n` +
+                 `- **Frontend Architecture**: Multi-component modular structure with \`HeaderComponent\`, \`LoginComponent\`, \`ProductCatalogComponent\`, \`AppRoutingModule\`, and RxJS state services.\n` +
+                 `- **Backend Architecture**: Node.js Express REST API in \`app/backend/server.js\` with mock responses for \`/api/login\`, \`/api/health\`, \`/api/user\`, \`/api/products\`.\n` +
                  `- **DocBlocks**: Mandatory file header docblocks added per \`coding_standards.md\`.\n` +
                  `- **Unit Test Coverage**: > 80% Verified with Jest in \`app/backend/server.test.js\`.\n\n` +
                  `### Acceptance Criteria Verified\n` +
@@ -654,102 +663,194 @@ module.exports = app;
 
 function writeFrontendCodeFromPlan(ticket, planText) {
   const frontendAppDir = path.join(WORKSPACE_ROOT, 'app', 'frontend', 'src', 'app');
-  if (!fs.existsSync(frontendAppDir)) {
-    fs.mkdirSync(frontendAppDir, { recursive: true });
-  }
+  const componentsDir = path.join(frontendAppDir, 'components');
+  const servicesDir = path.join(frontendAppDir, 'services');
+  const modelsDir = path.join(frontendAppDir, 'models');
 
-  // 1. app.module.ts
-  const modulePath = path.join(frontendAppDir, 'app.module.ts');
-  const moduleCode = `/**
- * @fileoverview Root Application Module configuring Angular dependencies.
- * @module AppModule
- * @standards Clean Architecture, SOLID Principles, Modular Design
+  [frontendAppDir, componentsDir, servicesDir, modelsDir].forEach(d => {
+    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+  });
+
+  // 1. Models: models/user.model.ts & models/product.model.ts
+  const userModelPath = path.join(modelsDir, 'user.model.ts');
+  fs.writeFileSync(userModelPath, `/**
+ * @fileoverview User and Authentication TypeScript interface models.
+ * @module UserModel
  * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
  */
 
-import { NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { HttpClientModule } from '@angular/common/http';
+export interface User {
+  username: string;
+  name: string;
+  email: string;
+  role?: string;
+  token?: string;
+}
 
-import { AppComponent } from './app.component';
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  user?: User;
+}
+`, 'utf8');
+  console.log(`    📄 [Generated Model]: ${userModelPath}`);
 
-@NgModule({
-  declarations: [AppComponent],
-  imports: [
-    BrowserModule,
-    FormsModule,
-    ReactiveFormsModule,
-    HttpClientModule
-  ],
-  providers: [],
-  bootstrap: [AppComponent]
-})
-export class AppModule {}
-`;
-  fs.writeFileSync(modulePath, moduleCode, 'utf8');
-  console.log(`    📄 [Generated Frontend Module]: ${modulePath}`);
-
-  // 2. app.component.ts
-  const componentPath = path.join(frontendAppDir, 'app.component.ts');
-  const componentCode = `/**
- * @fileoverview Main Angular Component managing authentication, catalog state, and health checking.
- * @module AppComponent
- * @standards Clean Architecture, SOLID Principles, Modular Design
+  const productModelPath = path.join(modelsDir, 'product.model.ts');
+  fs.writeFileSync(productModelPath, `/**
+ * @fileoverview Product entity TypeScript interface model.
+ * @module ProductModel
  * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
  */
 
-import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
-
-interface Product {
+export interface Product {
   id: number;
   name: string;
   price: number;
   category: string;
   inStock: boolean;
 }
+`, 'utf8');
+  console.log(`    📄 [Generated Model]: ${productModelPath}`);
 
-interface User {
-  username: string;
-  name: string;
-  email: string;
-  token?: string;
-}
+  // 2. Services: services/auth.service.ts, product.service.ts, health.service.ts
+  const authServicePath = path.join(servicesDir, 'auth.service.ts');
+  fs.writeFileSync(authServicePath, `/**
+ * @fileoverview Authentication service managing reactive user state with RxJS BehaviorSubject.
+ * @module AuthService
+ * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
+ */
 
-@Component({
-  selector: 'app-root',
-  templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css']
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { User, AuthResponse } from '../models/user.model';
+
+@Injectable({
+  providedIn: 'root'
 })
-export class AppComponent implements OnInit {
-  title = 'SHOP Autonomous Multi-Agent Platform';
-  loginForm: FormGroup;
-  currentUser: User | null = null;
-  products: Product[] = [];
-  backendStatus: string = 'Checking backend health...';
-  backendHealthy: boolean = false;
-  loginError: string = '';
-  loginSuccess: string = '';
-  loading: boolean = false;
+export class AuthService {
+  private readonly API_BASE = 'http://localhost:3000/api';
+  private currentUserSubject = new BehaviorSubject<User | null>(this.getStoredUser());
+  public currentUser$ = this.currentUserSubject.asObservable();
 
+  constructor(private http: HttpClient) {}
+
+  public get currentUserValue(): User | null {
+    return this.currentUserSubject.value;
+  }
+
+  private getStoredUser(): User | null {
+    try {
+      const stored = localStorage.getItem('currentUser');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  login(credentials: { username: string; password: string }): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(\`\${this.API_BASE}/login\`, credentials).pipe(
+      tap(res => {
+        if (res.success && res.user) {
+          localStorage.setItem('currentUser', JSON.stringify(res.user));
+          this.currentUserSubject.next(res.user);
+        }
+      })
+    );
+  }
+
+  logout(): void {
+    localStorage.removeItem('currentUser');
+    this.currentUserSubject.next(null);
+  }
+}
+`, 'utf8');
+  console.log(`    📄 [Generated Service]: ${authServicePath}`);
+
+  const productServicePath = path.join(servicesDir, 'product.service.ts');
+  fs.writeFileSync(productServicePath, `/**
+ * @fileoverview Product service managing product catalog HTTP requests.
+ * @module ProductService
+ * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
+ */
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { Product } from '../models/product.model';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ProductService {
   private readonly API_BASE = 'http://localhost:3000/api';
 
-  constructor(private fb: FormBuilder, private http: HttpClient) {
-    this.loginForm = this.fb.group({
-      username: ['', [Validators.required]],
-      password: ['', [Validators.required, Validators.minLength(6)]]
-    });
+  constructor(private http: HttpClient) {}
+
+  getProducts(): Observable<{ success: boolean; products: Product[] }> {
+    return this.http.get<{ success: boolean; products: Product[] }>(\`\${this.API_BASE}/products\`);
   }
+}
+`, 'utf8');
+  console.log(`    📄 [Generated Service]: ${productServicePath}`);
+
+  const healthServicePath = path.join(servicesDir, 'health.service.ts');
+  fs.writeFileSync(healthServicePath, `/**
+ * @fileoverview Health service monitoring backend availability.
+ * @module HealthService
+ * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
+ */
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class HealthService {
+  private readonly API_BASE = 'http://localhost:3000/api';
+
+  constructor(private http: HttpClient) {}
+
+  checkHealth(): Observable<{ success: boolean; message: string; timestamp: string }> {
+    return this.http.get<{ success: boolean; message: string; timestamp: string }>(\`\${this.API_BASE}/health\`);
+  }
+}
+`, 'utf8');
+  console.log(`    📄 [Generated Service]: ${healthServicePath}`);
+
+  // 3. Components: Header, Login, Product-Catalog
+  // Header Component
+  const headerDir = path.join(componentsDir, 'header');
+  if (!fs.existsSync(headerDir)) fs.mkdirSync(headerDir, { recursive: true });
+
+  fs.writeFileSync(path.join(headerDir, 'header.component.ts'), `/**
+ * @fileoverview Header navigation component displaying brand, user status, and backend health.
+ * @module HeaderComponent
+ * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
+ */
+
+import { Component, OnInit } from '@angular/core';
+import { AuthService } from '../../services/auth.service';
+import { HealthService } from '../../services/health.service';
+import { User } from '../../models/user.model';
+
+@Component({
+  selector: 'app-header',
+  templateUrl: './header.component.html',
+  styleUrls: ['./header.component.css']
+})
+export class HeaderComponent implements OnInit {
+  currentUser: User | null = null;
+  backendHealthy = false;
+  backendStatus = 'Checking health...';
+
+  constructor(private authService: AuthService, private healthService: HealthService) {}
 
   ngOnInit(): void {
-    this.checkHealth();
-    this.fetchProducts();
-  }
-
-  checkHealth(): void {
-    this.http.get<{ success: boolean; message: string }>(\`\${this.API_BASE}/health\`).subscribe({
+    this.authService.currentUser$.subscribe(u => this.currentUser = u);
+    this.healthService.checkHealth().subscribe({
       next: (res) => {
         this.backendHealthy = res.success;
         this.backendStatus = res.message;
@@ -761,17 +862,140 @@ export class AppComponent implements OnInit {
     });
   }
 
-  fetchProducts(): void {
-    this.http.get<{ success: boolean; products: Product[] }>(\`\${this.API_BASE}/products\`).subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.products = res.products;
-        }
-      },
-      error: () => {
-        this.products = [];
-      }
+  onLogout(): void {
+    this.authService.logout();
+  }
+}
+`, 'utf8');
+
+  fs.writeFileSync(path.join(headerDir, 'header.component.html'), `<header class="app-header">
+  <div class="header-brand">
+    <h1>🛍️ SHOP Platform</h1>
+    <nav class="nav-links">
+      <a routerLink="/products" routerLinkActive="active-link">Catalog</a>
+      <a routerLink="/login" *ngIf="!currentUser" routerLinkActive="active-link">Sign In</a>
+      <span *ngIf="currentUser" class="user-greeting">Hello, {{ currentUser.name }}</span>
+      <button *ngIf="currentUser" class="btn btn-logout" (click)="onLogout()">Logout</button>
+    </nav>
+  </div>
+  <div class="health-badge" [class.healthy]="backendHealthy" [class.unhealthy]="!backendHealthy">
+    <span class="status-indicator"></span>
+    {{ backendStatus }}
+  </div>
+</header>
+`, 'utf8');
+
+  fs.writeFileSync(path.join(headerDir, 'header.component.css'), `.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.header-brand h1 {
+  margin: 0;
+  font-size: 22px;
+  color: #111827;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.nav-links a {
+  color: #4b5563;
+  text-decoration: none;
+  font-weight: 500;
+}
+.nav-links a.active-link {
+  color: #2563eb;
+  font-weight: 700;
+}
+.user-greeting {
+  font-weight: 600;
+  color: #0369a1;
+}
+.btn-logout {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.health-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.health-badge.healthy {
+  background-color: #def7ec;
+  color: #03543f;
+}
+.health-badge.unhealthy {
+  background-color: #fde8e8;
+  color: #9b1c1c;
+}
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+`, 'utf8');
+  console.log(`    📄 [Generated Component]: HeaderComponent`);
+
+  // Login Component
+  const loginDir = path.join(componentsDir, 'login');
+  if (!fs.existsSync(loginDir)) fs.mkdirSync(loginDir, { recursive: true });
+
+  fs.writeFileSync(path.join(loginDir, 'login.component.ts'), `/**
+ * @fileoverview Dedicated Login component managing reactive user authentication form.
+ * @module LoginComponent
+ * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
+ */
+
+import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
+
+@Component({
+  selector: 'app-login',
+  templateUrl: './login.component.html',
+  styleUrls: ['./login.component.css']
+})
+export class LoginComponent implements OnInit {
+  loginForm: FormGroup;
+  loading = false;
+  loginError = '';
+  loginSuccess = '';
+
+  constructor(
+    private fb: FormBuilder,
+    private authService: AuthService,
+    private router: Router
+  ) {
+    this.loginForm = this.fb.group({
+      username: ['', [Validators.required]],
+      password: ['', [Validators.required, Validators.minLength(6)]]
     });
+  }
+
+  ngOnInit(): void {
+    if (this.authService.currentUserValue) {
+      this.router.navigate(['/products']);
+    }
   }
 
   onLogin(): void {
@@ -784,14 +1008,12 @@ export class AppComponent implements OnInit {
     this.loginError = '';
     this.loginSuccess = '';
 
-    const payload = this.loginForm.value;
-
-    this.http.post<{ success: boolean; message: string; user: User }>(\`\${this.API_BASE}/login\`, payload).subscribe({
+    this.authService.login(this.loginForm.value).subscribe({
       next: (res) => {
         this.loading = false;
         if (res.success && res.user) {
-          this.currentUser = res.user;
-          this.loginSuccess = 'Login successful! Welcome, ' + res.user.name;
+          this.loginSuccess = 'Login successful! Redirecting...';
+          setTimeout(() => this.router.navigate(['/products']), 500);
         }
       },
       error: (err) => {
@@ -800,282 +1022,214 @@ export class AppComponent implements OnInit {
       }
     });
   }
-
-  onLogout(): void {
-    this.currentUser = null;
-    this.loginSuccess = '';
-    this.loginError = '';
-    this.loginForm.reset();
-  }
 }
-`;
-  fs.writeFileSync(componentPath, componentCode, 'utf8');
-  console.log(`    📄 [Generated Frontend Component]: ${componentPath}`);
+`, 'utf8');
 
-  // 3. app.component.html
-  const htmlPath = path.join(frontendAppDir, 'app.component.html');
-  const htmlCode = `<!--
-  @fileoverview Template layout for SHOP Autonomous Application.
-  @module AppTemplate
-  @standards Semantic HTML5, Responsive UI, Accessibility
-  @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
--->
-<div class="app-container">
-  <header class="app-header">
-    <div class="header-brand">
-      <h1>🛍️ {{ title }}</h1>
-      <p class="feature-tag">Feature: ${ticket.key} - ${ticket.fields.summary || 'Feature'}</p>
+  fs.writeFileSync(path.join(loginDir, 'login.component.html'), `<div class="login-card">
+  <h2>User Authentication</h2>
+  <p class="login-subtext">Sign in with your registered credentials</p>
+
+  <div class="alert alert-danger" *ngIf="loginError" id="login-error-toast">
+    {{ loginError }}
+  </div>
+
+  <div class="alert alert-success" *ngIf="loginSuccess">
+    {{ loginSuccess }}
+  </div>
+
+  <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="login-form">
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input
+        id="username"
+        type="text"
+        formControlName="username"
+        placeholder="Enter your username (e.g. testuser)"
+        class="form-control"
+      />
     </div>
-    <div class="health-badge" [class.healthy]="backendHealthy" [class.unhealthy]="!backendHealthy">
-      <span class="status-indicator"></span>
-      Backend: {{ backendStatus }}
+
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input
+        id="password"
+        type="password"
+        formControlName="password"
+        placeholder="Enter your password (e.g. password123)"
+        class="form-control"
+      />
     </div>
-  </header>
 
-  <main class="main-content">
-    <!-- User Logged In State -->
-    <section class="user-profile-card" *ngIf="currentUser">
-      <div class="profile-header">
-        <h2>Welcome, {{ currentUser.name }} ({{ currentUser.username }})</h2>
-        <button class="btn btn-secondary" (click)="onLogout()">Logout</button>
-      </div>
-      <p class="email-tag">Email: {{ currentUser.email }}</p>
-      <div class="alert alert-success" *ngIf="loginSuccess">
-        {{ loginSuccess }}
-      </div>
-    </section>
-
-    <!-- Login Form Card -->
-    <section class="login-card" *ngIf="!currentUser">
-      <h2>User Authentication</h2>
-      <p class="login-subtext">Sign in with your registered credentials</p>
-
-      <div class="alert alert-danger" *ngIf="loginError" id="login-error-toast">
-        {{ loginError }}
-      </div>
-
-      <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="login-form">
-        <div class="form-group">
-          <label for="username">Username</label>
-          <input
-            id="username"
-            type="text"
-            formControlName="username"
-            placeholder="Enter your username (e.g. testuser)"
-            class="form-control"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            formControlName="password"
-            placeholder="Enter your password (e.g. password123)"
-            class="form-control"
-          />
-        </div>
-
-        <button
-          type="submit"
-          id="login-submit-btn"
-          class="btn btn-primary"
-          [disabled]="loading || loginForm.invalid"
-        >
-          {{ loading ? 'Signing in...' : 'Sign In' }}
-        </button>
-      </form>
-    </section>
-
-    <!-- Product Catalog Section -->
-    <section class="catalog-section">
-      <h2>Featured Product Catalog</h2>
-      <div class="product-grid" *ngIf="products.length > 0">
-        <div class="product-card" *ngFor="let product of products">
-          <div class="product-header">
-            <h3>{{ product.name }}</h3>
-            <span class="category-badge">{{ product.category }}</span>
-          </div>
-          <p class="product-price">\${{ product.price }}</p>
-          <span class="stock-badge" [class.in-stock]="product.inStock">
-            {{ product.inStock ? 'In Stock' : 'Out of Stock' }}
-          </span>
-        </div>
-      </div>
-      <p *ngIf="products.length === 0" class="no-products">Loading product catalog...</p>
-    </section>
-  </main>
+    <button
+      type="submit"
+      id="login-submit-btn"
+      class="btn btn-primary"
+      [disabled]="loading || loginForm.invalid"
+    >
+      {{ loading ? 'Signing in...' : 'Sign In' }}
+    </button>
+  </form>
 </div>
-`;
-  fs.writeFileSync(htmlPath, htmlCode, 'utf8');
-  console.log(`    📄 [Generated Frontend HTML Template]: ${htmlPath}`);
+`, 'utf8');
 
-  // 4. app.component.css
-  const cssPath = path.join(frontendAppDir, 'app.component.css');
-  const cssCode = `/**
- * @fileoverview Styling for SHOP Autonomous Application.
- * @module AppStyles
- * @standards Modern Responsive CSS, Flexbox, Grid
- * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
- */
-
-.app-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #1f2937;
-}
-
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 2px solid #e5e7eb;
-  padding-bottom: 16px;
-  margin-bottom: 24px;
-}
-
-.header-brand h1 {
-  margin: 0;
-  font-size: 24px;
-  color: #111827;
-}
-
-.feature-tag {
-  margin: 4px 0 0 0;
-  font-size: 13px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.health-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 9999px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.health-badge.healthy {
-  background-color: #def7ec;
-  color: #03543f;
-}
-
-.health-badge.unhealthy {
-  background-color: #fde8e8;
-  color: #9b1c1c;
-}
-
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: currentColor;
-}
-
-.main-content {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-.login-card, .user-profile-card {
+  fs.writeFileSync(path.join(loginDir, 'login.component.css'), `.login-card {
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  max-width: 480px;
+  max-width: 440px;
+  margin: 0 auto;
 }
-
+.login-card h2 {
+  margin: 0 0 4px 0;
+}
+.login-subtext {
+  color: #6b7280;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
 .login-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
-
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-
 .form-group label {
   font-size: 14px;
   font-weight: 600;
 }
-
 .form-control {
   padding: 10px 12px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 14px;
 }
-
-.form-control:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-.btn {
-  padding: 10px 16px;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-}
-
 .btn-primary {
   background-color: #2563eb;
   color: #ffffff;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
 }
-
 .btn-primary:disabled {
   background-color: #93c5fd;
   cursor: not-allowed;
 }
-
-.btn-secondary {
-  background-color: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
 .alert {
   padding: 12px;
   border-radius: 6px;
   font-size: 14px;
   margin-bottom: 16px;
 }
-
 .alert-danger {
   background-color: #fee2e2;
   color: #991b1b;
   border: 1px solid #f87171;
 }
-
 .alert-success {
   background-color: #d1fae5;
   color: #065f46;
   border: 1px solid #34d399;
 }
+`, 'utf8');
+  console.log(`    📄 [Generated Component]: LoginComponent`);
 
-.catalog-section h2 {
-  font-size: 20px;
-  margin-bottom: 16px;
+  // Product Catalog Component
+  const catalogDir = path.join(componentsDir, 'product-catalog');
+  if (!fs.existsSync(catalogDir)) fs.mkdirSync(catalogDir, { recursive: true });
+
+  fs.writeFileSync(path.join(catalogDir, 'product-catalog.component.ts'), `/**
+ * @fileoverview Product catalog grid component displaying items, category filters, and availability.
+ * @module ProductCatalogComponent
+ * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
+ */
+
+import { Component, OnInit } from '@angular/core';
+import { ProductService } from '../../services/product.service';
+import { Product } from '../../models/product.model';
+
+@Component({
+  selector: 'app-product-catalog',
+  templateUrl: './product-catalog.component.html',
+  styleUrls: ['./product-catalog.component.css']
+})
+export class ProductCatalogComponent implements OnInit {
+  products: Product[] = [];
+  loading = true;
+
+  constructor(private productService: ProductService) {}
+
+  ngOnInit(): void {
+    this.productService.getProducts().subscribe({
+      next: (res) => {
+        this.loading = false;
+        if (res.success) {
+          this.products = res.products;
+        }
+      },
+      error: () => {
+        this.loading = false;
+        this.products = [];
+      }
+    });
+  }
 }
+`, 'utf8');
 
+  fs.writeFileSync(path.join(catalogDir, 'product-catalog.component.html'), `<div class="catalog-container">
+  <div class="catalog-header">
+    <h2>Featured Product Catalog</h2>
+    <span class="items-count">{{ products.length }} items available</span>
+  </div>
+
+  <div class="product-grid" *ngIf="products.length > 0">
+    <div class="product-card" *ngFor="let product of products">
+      <div class="product-header">
+        <h3>{{ product.name }}</h3>
+        <span class="category-badge">{{ product.category }}</span>
+      </div>
+      <p class="product-price">\${{ product.price }}</p>
+      <span class="stock-badge" [class.in-stock]="product.inStock">
+        {{ product.inStock ? 'In Stock' : 'Out of Stock' }}
+      </span>
+    </div>
+  </div>
+
+  <p *ngIf="loading" class="loading-msg">Loading featured products...</p>
+  <p *ngIf="!loading && products.length === 0" class="no-products">No products found in catalog.</p>
+</div>
+`, 'utf8');
+
+  fs.writeFileSync(path.join(catalogDir, 'product-catalog.component.css'), `.catalog-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.catalog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.catalog-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.items-count {
+  font-size: 13px;
+  color: #6b7280;
+}
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
 }
-
 .product-card {
   background: #ffffff;
   border: 1px solid #e5e7eb;
@@ -1084,19 +1238,17 @@ export class AppComponent implements OnInit {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
-
 .product-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
 }
-
 .product-header h3 {
   margin: 0;
   font-size: 16px;
 }
-
 .category-badge {
   background-color: #e0f2fe;
   color: #0369a1;
@@ -1105,25 +1257,130 @@ export class AppComponent implements OnInit {
   font-size: 12px;
   font-weight: 600;
 }
-
 .product-price {
   font-size: 20px;
   font-weight: 700;
   color: #111827;
   margin: 8px 0;
 }
-
 .stock-badge {
   font-size: 12px;
   font-weight: 600;
 }
-
 .stock-badge.in-stock {
   color: #059669;
 }
-`;
-  fs.writeFileSync(cssPath, cssCode, 'utf8');
-  console.log(`    📄 [Generated Frontend Styles]: ${cssPath}`);
+`, 'utf8');
+  console.log(`    📄 [Generated Component]: ProductCatalogComponent`);
+
+  // 4. app-routing.module.ts
+  const routingModulePath = path.join(frontendAppDir, 'app-routing.module.ts');
+  fs.writeFileSync(routingModulePath, `/**
+ * @fileoverview Angular Client-Side Application Routing Module.
+ * @module AppRoutingModule
+ * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
+ */
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { LoginComponent } from './components/login/login.component';
+import { ProductCatalogComponent } from './components/product-catalog/product-catalog.component';
+
+const routes: Routes = [
+  { path: 'login', component: LoginComponent },
+  { path: 'products', component: ProductCatalogComponent },
+  { path: '', redirectTo: '/login', pathMatch: 'full' },
+  { path: '**', redirectTo: '/login' }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule {}
+`, 'utf8');
+  console.log(`    📄 [Generated Routing Module]: ${routingModulePath}`);
+
+  // 5. app.module.ts
+  const modulePath = path.join(frontendAppDir, 'app.module.ts');
+  fs.writeFileSync(modulePath, `/**
+ * @fileoverview Root Application Module declaring all modular components and importing AppRoutingModule.
+ * @module AppModule
+ * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
+ */
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
+
+import { AppRoutingModule } from './app-routing.module';
+import { AppComponent } from './app.component';
+import { HeaderComponent } from './components/header/header.component';
+import { LoginComponent } from './components/login/login.component';
+import { ProductCatalogComponent } from './components/product-catalog/product-catalog.component';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    HeaderComponent,
+    LoginComponent,
+    ProductCatalogComponent
+  ],
+  imports: [
+    BrowserModule,
+    AppRoutingModule,
+    FormsModule,
+    ReactiveFormsModule,
+    HttpClientModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule {}
+`, 'utf8');
+  console.log(`    📄 [Generated Root Module]: ${modulePath}`);
+
+  // 6. app.component.ts, html, css (App Shell)
+  const appComponentPath = path.join(frontendAppDir, 'app.component.ts');
+  fs.writeFileSync(appComponentPath, `/**
+ * @fileoverview Application Shell Component hosting header and router-outlet.
+ * @module AppComponent
+ * @feature ${ticket.key} - ${ticket.fields.summary || 'Feature'}
+ */
+
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css']
+})
+export class AppComponent {
+  title = 'SHOP Multi-Agent Platform';
+}
+`, 'utf8');
+
+  fs.writeFileSync(path.join(frontendAppDir, 'app.component.html'), `<div class="app-container">
+  <app-header></app-header>
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+</div>
+`, 'utf8');
+
+  fs.writeFileSync(path.join(frontendAppDir, 'app.component.css'), `.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #1f2937;
+}
+.main-content {
+  margin-top: 16px;
+}
+`, 'utf8');
+  console.log(`    📄 [Generated App Shell]: ${appComponentPath}`);
 }
 
 function writeUnitTestsFromPlan(ticket, planText) {

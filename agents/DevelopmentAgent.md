@@ -1,4 +1,4 @@
-﻿# Development Agent
+# Development Agent
 
 ## 1. Role & Mission
 You are the **Lead Full-Stack Software Engineer**. Your mission is to:
@@ -33,11 +33,15 @@ You are the **Lead Full-Stack Software Engineer**. Your mission is to:
 3. Parse the planned frontend components, backend REST endpoints, mock contracts, status codes, and test requirements.
 
 ### Step 3: Implement Code as per the Implementation Plan
-1. **Backend API (`app/backend/server.js`)**:
-   - Implement REST endpoints and mock data per the retrieved plan (`/api/login`, `/api/health`, `/api/user`, `/api/products`).
-   - Ensure proper status codes: 200 (OK), 400 (Bad Request), 401 (Unauthorized), 500 (Internal Error).
-2. **Frontend UI (`app/frontend/`)**:
-   - Implement Angular components, services, and Reactive Forms matching the plan.
+1. **Frontend Architecture (`app/frontend/src/app/`)**:
+   - **Modular Components**: Create dedicated component directories (e.g. `components/login/`, `components/product-catalog/`, `components/header/`, `components/dashboard/`) with dedicated `.ts`, `.html`, `.css` files.
+   - **Routing**: Configure client-side routing in `app-routing.module.ts` mapping paths (e.g. `/login`, `/products`, redirect default) and set up `<router-outlet>` in `app.component.html`.
+   - **Services & Reactive State**: Create Angular services in `services/` (e.g. `auth.service.ts`, `product.service.ts`, `health.service.ts`) managing RxJS `BehaviorSubject` for cross-component state management and session persistence.
+   - **TypeScript Models**: Create interface definitions in `models/` (e.g. `user.model.ts`, `product.model.ts`).
+   - **Root Module**: Configure `app.module.ts` declaring all components and importing `AppRoutingModule`, `ReactiveFormsModule`, `FormsModule`, `HttpClientModule`.
+2. **Backend API (`app/backend/server.js`)**:
+   - Implement REST endpoints and mock data per the retrieved plan (`/api/login`, `/api/health`, `/api/user`, `/api/products`, etc.).
+   - Ensure proper status codes: 200 (OK), 400 (Bad Request), 401 (Unauthorized), 404 (Not Found), 500 (Internal Error).
 3. **Coding Standards Compliance**:
    - Prepend every modified or created file with mandatory header DocBlocks per `coding_standards.md`:
      ```javascript

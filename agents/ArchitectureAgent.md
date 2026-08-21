@@ -22,15 +22,30 @@ You are the **Lead Software Architect**. Your mission is to analyze Jira tickets
 
 ### Step 2: Formulate Detailed Technical Implementation Plan
 Structure the plan with comprehensive technical specifications:
-1. **Component Architecture & File Structure**:
-   - `app/frontend/src/app/app.module.ts`: Root module configuration (`BrowserModule`, `ReactiveFormsModule`, `FormsModule`, `HttpClientModule`).
-   - `app/frontend/src/app/app.component.ts`: Logic for authentication flow, product catalogue data, health monitoring, error alerts.
-   - `app/frontend/src/app/app.component.html`: Semantic markup with Login Card, Status Banner, Health Indicator, Product Grid.
-   - `app/frontend/src/app/app.component.css`: Component styling (Flexbox/Grid layout, responsive breakpoints, error banners).
-   - `app/backend/server.js`: Node.js Express server with CORS, JSON body parsing, route handlers, error boundary middleware.
+1. **Multi-Component Architecture & File Structure**:
+   - **Root & Shell**:
+     - `app/frontend/src/app/app.module.ts`: Root module importing `BrowserModule`, `AppRoutingModule`, `ReactiveFormsModule`, `FormsModule`, `HttpClientModule`, declaring all feature components.
+     - `app/frontend/src/app/app-routing.module.ts`: Client-side routing configuration (`/login`, `/products`, redirect default, wildcard 404).
+     - `app/frontend/src/app/app.component.ts`, `html`, `css`: App Shell hosting `<app-header>` and `<router-outlet>`.
+   - **Shared Components**:
+     - `app/frontend/src/app/components/header/`: Header navbar displaying brand, active route links, logged-in user badge, and live backend health indicator.
+   - **Feature Components**:
+     - `app/frontend/src/app/components/login/`: Dedicated Login form component with reactive validation, error banners, and submit handlers.
+     - `app/frontend/src/app/components/product-catalog/`: Dedicated Product Catalog component with responsive product cards, category filters, and stock badges.
+   - **Services & State Management**:
+     - `app/frontend/src/app/services/auth.service.ts`: Authentication state service managing `currentUser$` RxJS `BehaviorSubject`, login HTTP calls, and session persistence in `localStorage`.
+     - `app/frontend/src/app/services/product.service.ts`: Product service managing catalog HTTP fetch and caching.
+     - `app/frontend/src/app/services/health.service.ts`: Health check service monitoring backend status.
+   - **TypeScript Models**:
+     - `app/frontend/src/app/models/user.model.ts`: Interface for `User`, `LoginRequest`, `AuthResponse`.
+     - `app/frontend/src/app/models/product.model.ts`: Interface for `Product`.
+   - **Backend API**:
+     - `app/backend/server.js`: Node.js Express REST API service with CORS, JSON body parser, mock controllers, 404 handler, and 500 error boundary.
+
 2. **Framework Features & Patterns**:
-   - **Angular**: Reactive Forms (`FormBuilder`, `Validators.required`, `Validators.minLength`), `HttpClient` observables, responsive data binding.
-   - **Node.js**: Express routing, status code mapping (200, 400, 401, 404, 500), JSON response formatting.
+   - **Angular**: Multi-component modular design, Angular Routing with `RouterModule.forRoot()`, Reactive Forms (`FormBuilder`, `Validators.required`, `Validators.minLength`), RxJS `BehaviorSubject` for reactive state management across components, `HttpClient` observables.
+   - **Node.js**: Modular Express routing, HTTP status code mapping (200, 400, 401, 404, 500), JSON response formatting, error boundary middleware.
+
 3. **API Request & Response Specifications**:
    - `POST /api/login`:
      - Request Header: `Content-Type: application/json`
@@ -44,6 +59,7 @@ Structure the plan with comprehensive technical specifications:
      - Success (200 OK): `{ "success": true, "user": { "username": "testuser", "email": "testuser@example.com", "role": "Standard User" } }`
    - `GET /api/products`:
      - Success (200 OK): `{ "success": true, "products": [ { "id": 1, "name": "Wireless Headphones", "price": 99.99, "category": "Electronics", "inStock": true }, ... ] }`
+
 4. **Testing & Coverage Strategy**:
    - Jest unit tests in `app/backend/server.test.js` covering 100% of routes and status codes.
    - Quality target: **> 80% coverage on Statements, Branches, Functions, and Lines**.
