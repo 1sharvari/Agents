@@ -1,8 +1,28 @@
 const fs = require('fs');
 const path = require('path');
 
+function getWorkspaceRoot() {
+  const possibleRoots = [
+    path.join(__dirname, '..'),
+    process.cwd(),
+    'c:\\test\\Agents',
+    'C:\\test\\Agents'
+  ];
+  for (const root of possibleRoots) {
+    if (fs.existsSync(path.join(root, '.env'))) {
+      return root;
+    }
+  }
+  return path.join(__dirname, '..');
+}
+
+const WORKSPACE_ROOT = getWorkspaceRoot();
+
 function loadEnv() {
-  const envPath = path.join(__dirname, '..', '.env');
+  const envPath = path.join(WORKSPACE_ROOT, '.env');
+  if (!fs.existsSync(envPath)) {
+    throw new Error('Could not find .env file at ' + envPath);
+  }
   const envText = fs.readFileSync(envPath, 'utf8');
   const env = {};
   for (const line of envText.split('\n')) {
@@ -17,9 +37,7 @@ function loadEnv() {
   return env;
 }
 
-
-async function jiraRequest(endpoint, options)
-{
+async function jiraRequest(endpoint, options = {}) {
   const env = loadEnv();
   const auth = Buffer.from(env.JIRA_EMAIL + ':' + env.JIRA_API_TOKEN).toString('base64');
   const baseUrl = env.JIRA_BASE_URL.replace(/\/+$/, '');
@@ -41,22 +59,51 @@ async function jiraRequest(endpoint, options)
 
 async function getBoardTickets() {
   const env = loadEnv();
-  const data = await jiraRequest('/rest/api/3/search/jql', {
-    method: 'POST',
-    body: JSON.stringify({
-      jql: 'project = ' + env.JIRA_PROJECT_KEY + ' ORDER BY created DESC',
-      fields: ['summary', 'status', 'description', 'labels']
-    })
-  });
-  return data.issues || [];
+  try {
+    const data = await jiraRequest('/rest/api/3/search/jql?jql=' + encodeURIComponent('project = ' + env.JIRA_PROJECT_KEY + ' ORDER BY created DESC') + '&fields=summary,status,description,labels,comment');
+    if (data && data.issues && data.issues.length > 0) {
+      return data.issues;
+    }
+  } catch (e) {}
+
+  if (env.JIRA_BOARD_ID) {
+    try {
+      const boardData = await jiraRequest('/rest/agile/1.0/board/' + env.JIRA_BOARD_ID + '/issue');
+      if (boardData && boardData.issues) {
+        return boardData.issues;
+      }
+    } catch (e) {}
+  }
+  return [];
+}
+
+async function getTicketComments(ticketKey) {
+  const data = await jiraRequest('/rest/api/3/issue/' + ticketKey + '/comment');
+  return data.comments || [];
+}
+
+async function findExistingFeatureTicket(featureTitle) {
+  const tickets = await getBoardTickets();
+  const normalizedTitle = featureTitle.toLowerCase().trim();
+  return tickets.find(t => {
+    const summary = (t.fields.summary || '').toLowerCase().trim();
+    return summary.includes(normalizedTitle) || summary === `[feature] ${normalizedTitle}`;
+  }) || null;
 }
 
 async function createStoryFromRequirement() {
   const env = loadEnv();
-  const reqPath = path.join(__dirname, '..', 'requirement.md');
+  const reqPath = path.join(WORKSPACE_ROOT, 'requirement.md');
   const reqText = fs.readFileSync(reqPath, 'utf8');
-  const titleMatch = reqText.match(/Feature Title:\s(.*)/i) || reqText.match(/#\s(.*)/);
-  const title = titleMatch ? title[1].trim() : 'Application Feature';
+  const titleMatch = reqText.match(/Feature Title:\s*(.*)/i) || reqText.match(/#\s*(.*)/);
+  const title = titleMatch ? titleMatch[1].trim() : 'Application Feature';
+
+  // Prevent duplicate ticket creation
+  const existing = await findExistingFeatureTicket(title);
+  if (existing) {
+    console.log(`    ℹ️ Existing ticket found: ${existing.key} - "${existing.fields.summary}" (Status: ${existing.fields.status.name})`);
+    return existing;
+  }
 
   const payload = {
     fields: {
@@ -92,11 +139,16 @@ async function addComment(ticketKey, commentText) {
   });
 }
 
+async function getAvailableTransitions(ticketKey) {
+  const transData = await jiraRequest('/rest/api/3/issue/' + ticketKey + '/transitions');
+  return transData.transitions || [];
+}
+
 async function transitionTicket(ticketKey, targetStatusName) {
   const transData = await jiraRequest('/rest/api/3/issue/' + ticketKey + '/transitions');
   const target = transData.transitions.find(t => t.to.name.toLowerCase() === targetStatusName.toLowerCase());
   if (!target) {
-    throw new Error('Transition to ' + targetStatusName + ' not available for ' + ticketKey + '. Available: ' + transData.transitions.map(t => t.to.name).join(', '));
+    throw new Error('Transition to "' + targetStatusName + '" not available for ' + ticketKey + '. Available: ' + transData.transitions.map(t => t.to.name).join(', '));
   }
   await jiraRequest('/rest/api/3/issue/' + ticketKey + '/transitions', {
     method: 'POST',
@@ -106,9 +158,14 @@ async function transitionTicket(ticketKey, targetStatusName) {
 }
 
 module.exports = {
+  WORKSPACE_ROOT,
+  loadEnv,
+  jiraRequest,
   getBoardTickets,
+  getTicketComments,
+  findExistingFeatureTicket,
   createStoryFromRequirement,
   addComment,
-  transitionTicket,
-  projectKey: loadEnv().JIRA_PROJECT_KEY
+  getAvailableTransitions,
+  transitionTicket
 };

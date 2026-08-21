@@ -162,12 +162,23 @@ function extractCommentText(comment) {
 // Specialized Agent Handlers
 // -------------------------------------------------------------
 
-async function runBusinessAgent() {
-  console.log('\n>>> [1/5] 📋 Business Agent: Reading requirement.md & Creating User Story...');
+async function runBusinessAgent(existingTicket = null) {
+  console.log('\n>>> [1/5] 📋 Business Agent: Reading requirement.md & Checking User Story...');
   const reqPath = path.join(WORKSPACE_ROOT, 'requirement.md');
   const reqText = fs.readFileSync(reqPath, 'utf8');
   const titleMatch = reqText.match(/Feature Title:\s*(.*)/i) || reqText.match(/#\s*(.*)/);
   const title = titleMatch ? titleMatch[1].trim() : 'User Authentication & Product Catalog Flow';
+
+  // Prevent duplicate ticket creation
+  if (existingTicket) {
+    console.log(`    ℹ️ Existing ticket found: ${existingTicket.key} - "${existingTicket.fields.summary}" (Status: ${existingTicket.fields.status.name})`);
+    console.log(`    Active Ticket: ${existingTicket.key} (${baseUrl}/browse/${existingTicket.key})`);
+    console.log(`    Status: ${existingTicket.fields.status.name}`);
+    console.log('\n🛑 [HUMAN GATE 1]: User Story is in "To Do".');
+    console.log(`    👉 Please review the story at ${baseUrl}/browse/${existingTicket.key}`);
+    console.log(`    👉 Transition ticket to '${STATUS_DICT.devReady}' in Jira to authorize Architecture Agent.`);
+    return existingTicket.key;
+  }
 
   const created = await jiraRequest('/rest/api/3/issue', {
     method: 'POST',
@@ -198,34 +209,59 @@ async function runArchitectureAgent(ticket) {
   console.log(`\n>>> [2/5] 📐 Architecture Agent: Analyzing ticket ${ticket.key} in '${ticket.fields.status.name}'...`);
   const comments = await getTicketComments(ticket.key);
   const commentTexts = comments.map(extractCommentText);
-  const requestedAlternative = commentTexts.some(t =>
-    /need other plan|different plan|revise plan|alternative plan/i.test(t)
+
+  // Check if initial architecture plan has already been posted
+  const planIndex = commentTexts.findIndex(t => /## 📐 Technical Architecture & Development Plan/i.test(t));
+  const hasPlan = planIndex !== -1;
+
+  // Check if human asked for alternative plan (especially comments after the initial plan)
+  const subsequentComments = hasPlan ? commentTexts.slice(planIndex + 1) : commentTexts;
+  const humanRequestsAlternative = subsequentComments.some(t =>
+    /need other plan|different plan|revise plan|alternative plan|change plan|alternative|other plan/i.test(t)
   );
 
-  let archPlan = '';
-  if (requestedAlternative) {
-    console.log('    Detected feedback comment requesting an alternative plan.');
-    archPlan = '## 📐 Alternative Technical Architecture & Development Plan\n\n' +
-               '- **Frontend**: Angular standalone components with reactive forms and modular services in `app/frontend/`\n' +
-               '- **Backend**: Node.js Express REST API in `app/backend/server.js` with structured mock controllers\n' +
-               '- **Endpoints**: `POST /api/login`, `GET /api/health`, `GET /api/user`, `GET /api/products`\n' +
-               '- **Testing Strategy**: Jest Unit Tests (>80% coverage) + Playwright E2E specs in `tests/e2e/`\n' +
-               '- **Status**: Alternative Architecture Formulated per feedback.';
-  } else {
-    archPlan = '## 📐 Technical Architecture & Development Plan\n\n' +
-               '- **Frontend**: Angular UI components in `app/frontend/` with reactive forms for authentication\n' +
-               '- **Backend**: Node.js Express REST API mock service in `app/backend/server.js`\n' +
-               '- **API Contracts**: Status codes 200 (OK), 400 (Bad Request), 401 (Unauthorized), 500 (Internal Error)\n' +
-               '- **Quality Gates**: Jest Unit Tests with coverage target > 80% and Playwright automated E2E tests in `tests/`\n' +
-               '- **Status**: Architecture Approved and Ready for Development.';
+  // Check if alternative plan has already been posted in response
+  const alternativePlanIndex = commentTexts.findIndex(t => /## 📐 Alternative Technical Architecture & Development Plan/i.test(t));
+  const hasAlternativePlan = alternativePlanIndex !== -1;
+
+  if (humanRequestsAlternative && (!hasAlternativePlan || alternativePlanIndex < planIndex)) {
+    console.log('    💬 Human feedback received requesting an alternative architecture plan.');
+    const altPlan = '## 📐 Alternative Technical Architecture & Development Plan\n\n' +
+                    '- **Frontend Architecture**: Standalone Angular components with reactive forms and state services in `app/frontend/`\n' +
+                    '- **Backend Architecture**: Modular Node.js Express service in `app/backend/server.js`\n' +
+                    '- **REST API Endpoints**: `POST /api/login`, `GET /api/health`, `GET /api/user`, `GET /api/products`\n' +
+                    '- **Testing Strategy**: Jest Unit Tests (>80% coverage) + Playwright E2E automation in `tests/`\n' +
+                    '- **Status**: Alternative Development Plan formulated and posted for review.';
+    await addComment(ticket.key, altPlan);
+
+    console.log('\n🛑 [HUMAN GATE 2]: Alternative Development Plan posted to Jira comments.');
+    console.log(`    👉 Please review the alternative plan at ${baseUrl}/browse/${ticket.key}`);
+    console.log(`    👉 If approved: Transition ticket to '${STATUS_DICT.inDev}' in Jira to authorize Development Agent.`);
+    console.log(`    👉 If further changes needed: Add a comment in Jira and rerun the orchestrator.`);
+    return;
   }
 
-  await addComment(ticket.key, archPlan);
+  if (!hasPlan) {
+    console.log('    📝 Generating initial Development Plan for ticket...');
+    const archPlan = '## 📐 Technical Architecture & Development Plan\n\n' +
+                     '- **Frontend**: Angular UI components in `app/frontend/` with reactive forms for authentication\n' +
+                     '- **Backend**: Node.js Express REST API mock service in `app/backend/server.js`\n' +
+                     '- **API Contracts**: Status codes 200 (OK), 400 (Bad Request), 401 (Unauthorized), 500 (Internal Error)\n' +
+                     '- **Quality Gates**: Jest Unit Tests with coverage target > 80% and Playwright automated E2E tests in `tests/`\n' +
+                     '- **Status**: Architecture Approved and Ready for Development.';
+    await addComment(ticket.key, archPlan);
 
-  console.log('\n🛑 [HUMAN GATE 2]: Development Plan posted to Jira comments.');
-  console.log(`    👉 Please review the architecture plan at ${baseUrl}/browse/${ticket.key}`);
-  console.log(`    👉 If approved: Transition ticket to '${STATUS_DICT.inDev}' in Jira to authorize Development Agent.`);
-  console.log(`    👉 If changes needed: Add a comment (e.g. 'need other plan with X') and rerun the orchestrator.`);
+    console.log('\n🛑 [HUMAN GATE 2]: Development Plan added to Jira comments.');
+    console.log(`    👉 Please review the architecture plan at ${baseUrl}/browse/${ticket.key}`);
+    console.log(`    👉 If approved: Transition ticket to '${STATUS_DICT.inDev}' in Jira to authorize Development Agent.`);
+    console.log(`    👉 If alternative plan needed: Add a comment in Jira (e.g. 'need other plan with X') and rerun the orchestrator.`);
+  } else {
+    console.log('    ℹ️ Development plan already exists in ticket comments.');
+    console.log('\n🛑 [HUMAN GATE 2]: Awaiting human authorization.');
+    console.log(`    👉 Please review the architecture plan at ${baseUrl}/browse/${ticket.key}`);
+    console.log(`    👉 If approved: Transition ticket to '${STATUS_DICT.inDev}' in Jira to authorize Development Agent.`);
+    console.log(`    👉 If alternative plan needed: Add a comment in Jira (e.g. 'need other plan with X') and rerun the orchestrator.`);
+  }
 }
 
 async function runDevelopmentAgent(ticket) {
@@ -351,38 +387,37 @@ async function main() {
   console.log('🔍 Scanning Jira Board for Active Tickets...');
   const tickets = await getBoardTickets();
 
-  if (!tickets || tickets.length === 0) {
-    console.log('ℹ️ No existing tickets found on Jira Board.');
+  // Find active (non-Done) ticket or latest ticket
+  const activeTicket = tickets.find(t => t.fields.status.name.toLowerCase() !== 'done') || (tickets.length > 0 ? tickets[0] : null);
+
+  if (!activeTicket) {
+    console.log('ℹ️ No active tickets found on Jira Board.');
     await runBusinessAgent();
     return;
   }
 
-  // Find the most recent active ticket
-  const ticket = tickets[0];
-  const statusName = ticket.fields.status.name;
-  console.log(`📌 Found Active Ticket: ${ticket.key} - "${ticket.fields.summary}"`);
+  const statusName = activeTicket.fields.status.name;
+  console.log(`📌 Found Active Ticket: ${activeTicket.key} - "${activeTicket.fields.summary}"`);
   console.log(`   Current Jira Status: [${statusName}]`);
 
   const normStatus = statusName.toLowerCase().trim();
 
   if (normStatus === 'to do' || normStatus === 'todo') {
-    console.log('\n🛑 [HUMAN GATE 1]: Ticket is currently in "To Do".');
-    console.log(`    👉 Please review the story at ${baseUrl}/browse/${ticket.key}`);
-    console.log(`    👉 Transition ticket to '${STATUS_DICT.devReady}' in Jira to authorize Architecture Agent.`);
+    await runBusinessAgent(activeTicket);
   } else if (normStatus === 'dev ready') {
-    await runArchitectureAgent(ticket);
+    await runArchitectureAgent(activeTicket);
   } else if (normStatus === 'in dev' || normStatus === 'in progress') {
-    await runDevelopmentAgent(ticket);
+    await runDevelopmentAgent(activeTicket);
   } else if (normStatus === 'in review' || normStatus === 'code review') {
-    await runReviewAgent(ticket);
+    await runReviewAgent(activeTicket);
   } else if (normStatus === 'qa ready') {
-    await runQAAgent(ticket);
+    await runQAAgent(activeTicket);
   } else if (normStatus === 'qa pass' || normStatus === 'deployment ready') {
-    console.log(`\n🚀 Finalizing deployment for ${ticket.key}...`);
-    await transitionTo(ticket.key, STATUS_DICT.done);
-    console.log(`🎉 Ticket ${ticket.key} is DONE!`);
+    console.log(`\n🚀 Finalizing deployment for ${activeTicket.key}...`);
+    await transitionTo(activeTicket.key, STATUS_DICT.done);
+    console.log(`🎉 Ticket ${activeTicket.key} is DONE!`);
   } else if (normStatus === 'done') {
-    console.log(`\n✅ Ticket ${ticket.key} is already DONE. To start a new cycle, update requirement.md or create a new ticket.`);
+    console.log(`\n✅ Ticket ${activeTicket.key} is already DONE. To start a new cycle, update requirement.md or create a new ticket.`);
   } else {
     console.log(`\n⚠️ Unknown ticket status: [${statusName}]. Supported statuses: ${Object.values(STATUS_DICT).join(', ')}`);
   }
