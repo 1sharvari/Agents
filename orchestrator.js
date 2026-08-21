@@ -227,11 +227,31 @@ async function runArchitectureAgent(ticket) {
   if (humanRequestsAlternative && (!hasAlternativePlan || alternativePlanIndex < planIndex)) {
     console.log('    💬 Human feedback received requesting an alternative architecture plan.');
     const altPlan = '## 📐 Alternative Technical Architecture & Development Plan\n\n' +
-                    '- **Frontend Architecture**: Standalone Angular components with reactive forms and state services in `app/frontend/`\n' +
-                    '- **Backend Architecture**: Modular Node.js Express service in `app/backend/server.js`\n' +
-                    '- **REST API Endpoints**: `POST /api/login`, `GET /api/health`, `GET /api/user`, `GET /api/products`\n' +
-                    '- **Testing Strategy**: Jest Unit Tests (>80% coverage) + Playwright E2E automation in `tests/`\n' +
-                    '- **Status**: Alternative Development Plan formulated and posted for review.';
+                    '### 1. Component Structure & Architecture\n' +
+                    '- `app/frontend/src/app/app.module.ts`: Root module importing `BrowserModule`, `ReactiveFormsModule`, `FormsModule`, `HttpClientModule`\n' +
+                    '- `app/frontend/src/app/app.component.ts`: Standalone Angular component managing reactive login form, session storage, catalogue state, and health checking\n' +
+                    '- `app/frontend/src/app/app.component.html`: Template with Login Card, Alert Banner, Health Status Bar, and Product Catalog Grid\n' +
+                    '- `app/frontend/src/app/app.component.css`: Modern responsive CSS with Flexbox/Grid layout and mobile breakpoints\n' +
+                    '- `app/backend/server.js`: Node.js Express service with CORS, JSON body parser, and error boundary\n\n' +
+                    '### 2. Features & Patterns\n' +
+                    '- **Angular**: Reactive Forms with `Validators.required`, `HttpClient` observables, responsive data binding\n' +
+                    '- **Node.js**: Modular Express routing, hardcoded mock responses, HTTP status code mapping\n\n' +
+                    '### 3. API Request & Response Contracts\n' +
+                    '- **`POST /api/login`**:\n' +
+                    '  - Request: `Content-Type: application/json`, Body: `{"username": "testuser", "password": "password123"}`\n' +
+                    '  - 200 OK: `{"success": true, "message": "Login successful", "user": {"username": "testuser", "token": "jwt-token-..."}}`\n' +
+                    '  - 400 Bad Request: `{"success": false, "message": "Username and password are required"}`\n' +
+                    '  - 401 Unauthorized: `{"success": false, "message": "Invalid username or password"}`\n' +
+                    '- **`GET /api/health`**:\n' +
+                    '  - 200 OK: `{"success": true, "message": "Backend is running", "timestamp": "<ISO-8601>"}`\n' +
+                    '- **`GET /api/user`**:\n' +
+                    '  - 200 OK: `{"success": true, "user": {"username": "testuser", "email": "testuser@example.com", "role": "Standard User"}}`\n' +
+                    '- **`GET /api/products`**:\n' +
+                    '  - 200 OK: `{"success": true, "products": [{"id": 1, "name": "Wireless Headphones", "price": 99.99, "category": "Electronics", "inStock": true}]}`\n\n' +
+                    '### 4. Unit Testing & Quality Gate\n' +
+                    '- Jest unit tests in `app/backend/server.test.js` covering 100% of endpoints\n' +
+                    '- Code Coverage Requirement: Strictly **> 80%** on Statements, Branches, Functions, and Lines\n' +
+                    '- Status: Alternative Plan ready for human authorization.';
     await addComment(ticket.key, altPlan);
 
     console.log('\n🛑 [HUMAN GATE 2]: Alternative Development Plan posted to Jira comments.');
@@ -242,16 +262,40 @@ async function runArchitectureAgent(ticket) {
   }
 
   if (!hasPlan) {
-    console.log('    📝 Generating initial Development Plan for ticket...');
+    console.log('    📝 Generating detailed Development Plan for ticket...');
     const archPlan = '## 📐 Technical Architecture & Development Plan\n\n' +
-                     '- **Frontend**: Angular UI components in `app/frontend/` with reactive forms for authentication\n' +
-                     '- **Backend**: Node.js Express REST API mock service in `app/backend/server.js`\n' +
-                     '- **API Contracts**: Status codes 200 (OK), 400 (Bad Request), 401 (Unauthorized), 500 (Internal Error)\n' +
-                     '- **Quality Gates**: Jest Unit Tests with coverage target > 80% and Playwright automated E2E tests in `tests/`\n' +
-                     '- **Status**: Architecture Approved and Ready for Development.';
+                     '### 1. Component Structure & Architecture\n' +
+                     '- `app/frontend/src/app/app.module.ts`: Root module importing `BrowserModule`, `ReactiveFormsModule`, `FormsModule`, `HttpClientModule`\n' +
+                     '- `app/frontend/src/app/app.component.ts`: Component managing reactive login form, session storage, catalogue state, and health checking\n' +
+                     '- `app/frontend/src/app/app.component.html`: Semantic template with Login Card, Alert Banner, Health Status Bar, and Product Catalog Grid\n' +
+                     '- `app/frontend/src/app/app.component.css`: Modern responsive CSS with Flexbox/Grid layout and mobile breakpoints\n' +
+                     '- `app/backend/server.js`: Node.js Express REST API mock service with CORS, JSON body parser, and error boundary\n\n' +
+                     '### 2. Features & Patterns\n' +
+                     '- **Angular**: Reactive Forms with `FormBuilder` and `Validators.required`, `HttpClient` observables, responsive data binding\n' +
+                     '- **Node.js**: Modular Express routing, hardcoded mock responses, HTTP status code mapping\n\n' +
+                     '### 3. API Request & Response Contracts\n' +
+                     '- **`POST /api/login`**:\n' +
+                     '  - Request: `Content-Type: application/json`, Body: `{"username": "testuser", "password": "password123"}`\n' +
+                     '  - 200 OK: `{"success": true, "message": "Login successful", "user": {"username": "testuser", "token": "jwt-mock-token-12345"}}`\n' +
+                     '  - 400 Bad Request: `{"success": false, "message": "Username and password are required"}`\n' +
+                     '  - 401 Unauthorized: `{"success": false, "message": "Invalid username or password"}`\n' +
+                     '- **`GET /api/health`**:\n' +
+                     '  - 200 OK: `{"success": true, "message": "Backend is running", "timestamp": "<ISO-8601>"}`\n' +
+                     '- **`GET /api/user`**:\n' +
+                     '  - 200 OK: `{"success": true, "user": {"username": "testuser", "email": "testuser@example.com", "role": "Standard User"}}`\n' +
+                     '- **`GET /api/products`**:\n' +
+                     '  - 200 OK: `{"success": true, "products": [{"id": 1, "name": "Wireless Headphones", "price": 99.99, "category": "Electronics", "inStock": true}, {"id": 2, "name": "Ergonomic Keyboard", "price": 49.99, "category": "Accessories", "inStock": true}]}`\n' +
+                     '- **`404 Not Found & 500 Error Boundary`**:\n' +
+                     '  - 404: `{"success": false, "error": "Endpoint not found"}`\n' +
+                     '  - 500: `{"success": false, "error": "Internal server error"}`\n\n' +
+                     '### 4. Unit Testing & Quality Gate\n' +
+                     '- Jest unit tests in `app/backend/server.test.js` covering 100% of endpoints and status codes (200, 400, 401, 404, 500)\n' +
+                     '- Code Coverage Requirement: Strictly **> 80%** on Statements, Branches, Functions, and Lines\n' +
+                     '- Quality Gate: Only after 100% tests pass and coverage > 80% will the Development Agent raise PR to main and transition ticket to In Review.\n' +
+                     '- Status: Architecture Approved and Ready for Development.';
     await addComment(ticket.key, archPlan);
 
-    console.log('\n🛑 [HUMAN GATE 2]: Development Plan added to Jira comments.');
+    console.log('\n🛑 [HUMAN GATE 2]: Detailed Development Plan added to Jira comments.');
     console.log(`    👉 Please review the architecture plan at ${baseUrl}/browse/${ticket.key}`);
     console.log(`    👉 If approved: Transition ticket to '${STATUS_DICT.inDev}' in Jira to authorize Development Agent.`);
     console.log(`    👉 If alternative plan needed: Add a comment in Jira (e.g. 'need other plan with X') and rerun the orchestrator.`);
