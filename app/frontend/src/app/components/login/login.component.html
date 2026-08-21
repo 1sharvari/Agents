@@ -1,0 +1,45 @@
+<div class="login-card">
+  <h2>User Authentication</h2>
+  <p class="login-subtext">Sign in with your registered credentials</p>
+
+  <div class="alert alert-danger" *ngIf="loginError" id="login-error-toast">
+    {{ loginError }}
+  </div>
+
+  <div class="alert alert-success" *ngIf="loginSuccess">
+    {{ loginSuccess }}
+  </div>
+
+  <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="login-form">
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input
+        id="username"
+        type="text"
+        formControlName="username"
+        placeholder="Enter your username (e.g. testuser)"
+        class="form-control"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input
+        id="password"
+        type="password"
+        formControlName="password"
+        placeholder="Enter your password (e.g. password123)"
+        class="form-control"
+      />
+    </div>
+
+    <button
+      type="submit"
+      id="login-submit-btn"
+      class="btn btn-primary"
+      [disabled]="loading || loginForm.invalid"
+    >
+      {{ loading ? 'Signing in...' : 'Sign In' }}
+    </button>
+  </form>
+</div>

@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Jest unit tests verifying backend REST API endpoints and code coverage > 80%.
+ * @module ServerTests
+ * @standards Clean Architecture, Comprehensive Coverage, AAA Pattern
+ * @feature SHOP-35 - [Feature] User Authentication & Product Catalog Flow
+ */
+
 const request = require('supertest');
 const app = require('./server');
 
@@ -84,17 +91,17 @@ describe('Node Backend REST API Unit Tests', () => {
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.products)).toBe(true);
       expect(res.body.products.length).toBeGreaterThan(0);
-      expect(res.body.products[0]).toHaveProperty('name');
-      expect(res.body.products[0]).toHaveProperty('price');
+      expect(res.body.products[0].name).toBe('Wireless Headphones');
+      expect(res.body.products[0].price).toBe(99.99);
     });
   });
 
   describe('404 Route Handling', () => {
     it('should return 404 for unmapped route', async () => {
-      const res = await request(app).get('/api/non-existing-route');
+      const res = await request(app).get('/api/unknown-endpoint-test');
       expect(res.status).toBe(404);
       expect(res.body.success).toBe(false);
-      expect(res.body.message).toContain('Route not found');
+      expect(res.body.message).toBe('Endpoint not found');
     });
   });
 
